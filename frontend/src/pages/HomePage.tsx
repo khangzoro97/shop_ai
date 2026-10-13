@@ -5,7 +5,7 @@ import BeforeAfter from '../components/BeforeAfter.tsx'
 import CountUp from '../components/CountUp.tsx'
 import Marquee from '../components/Marquee.tsx'
 import Reveal from '../components/Reveal.tsx'
-import { CONTACT } from '../config.ts'
+import { CONTACT, FREE_TRIAL_IMAGES } from '../config.ts'
 
 const PLATFORMS = ['Shopee', 'TikTok Shop', 'Lazada', 'Facebook', 'Instagram', 'Zalo OA', 'Tiki']
 
@@ -39,7 +39,7 @@ const SERVICES = [
   {
     tag: 'Làm hộ',
     title: 'Gói content tháng',
-    text: 'Bận chốt đơn? Gửi ảnh qua Zalo, team Fortfio làm trọn bộ ảnh và video cho cả tháng.',
+    text: 'Bận chốt đơn? Gửi ảnh cho team Fortfio, nhận trọn bộ ảnh và video cho cả tháng.',
     accent: 'from-pop-peach to-pop-violet',
     wide: true,
   },
@@ -58,7 +58,7 @@ const PLANS = [
     price: '299K',
     credits: 180,
     note: '~90 ảnh hoặc 9 video',
-    perks: ['Mọi thứ của gói Dùng thử', 'Hỗ trợ qua Zalo'],
+    perks: ['Mọi thứ của gói Dùng thử', 'Hỗ trợ trực tiếp từ team'],
     featured: true,
   },
   { name: 'Pro', price: '799K', credits: 550, note: 'Cho shop đăng bài mỗi ngày', perks: ['Mọi thứ của gói Shop', 'Tư vấn concept riêng'] },
@@ -79,7 +79,7 @@ const FAQS = [
   },
   {
     q: 'Tôi không rành công nghệ, có làm hộ không?',
-    a: 'Có. Gửi ảnh sản phẩm qua Zalo, team Fortfio làm và gửi lại trọn bộ ảnh, video cho bạn.',
+    a: `Có. Gửi ảnh sản phẩm${CONTACT.primary ? ` qua ${CONTACT.primary.channel}` : ''}, team Fortfio làm và gửi lại trọn bộ ảnh, video cho bạn.`,
   },
 ]
 
@@ -101,9 +101,12 @@ export default function HomePage() {
   useEffect(() => {
     api
       .portfolio()
-      .then((all) => setHeroItem(all.find((item) => item.beforeUrl) ?? all[0]))
+      .then((all) => setHeroItem(all.find((item) => item.beforeUrl && !item.sample) ?? all[0]))
       .catch(() => {})
   }, [])
+
+  const onlySamples = items.length > 0 && items.every((item) => item.sample)
+  const showTrial = FREE_TRIAL_IMAGES > 0 && CONTACT.primary !== undefined
 
   return (
     <>
@@ -137,14 +140,16 @@ export default function HomePage() {
               >
                 Tạo ảnh miễn phí →
               </Link>
-              <a
-                href={CONTACT.zaloUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border-2 border-ink bg-white px-8 py-4 font-bold shadow-[4px_4px_0_0_var(--color-ink)] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_0_var(--color-ink)]"
-              >
-                Nhắn Zalo tư vấn
-              </a>
+              {CONTACT.primary && (
+                <a
+                  href={CONTACT.primary.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border-2 border-ink bg-white px-8 py-4 font-bold shadow-[4px_4px_0_0_var(--color-ink)] transition hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_0_var(--color-ink)]"
+                >
+                  Nhắn {CONTACT.primary.channel} tư vấn
+                </a>
+              )}
             </div>
             <div className="mt-8 flex animate-pop-in flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-ink/60 [animation-delay:400ms]">
               <span>✓ Tặng 30 credit</span>
@@ -155,12 +160,18 @@ export default function HomePage() {
 
           <div className="relative animate-pop-in [animation-delay:250ms]">
             <div className="absolute -inset-3 rotate-3 rounded-[2rem] bg-gradient-pop" />
-            {heroItem ? (
+            {heroItem?.beforeUrl ? (
               <BeforeAfter
-                before={heroItem.beforeUrl ?? heroItem.afterUrl}
+                before={heroItem.beforeUrl}
                 after={heroItem.afterUrl}
                 alt={heroItem.title}
                 className="relative aspect-[4/5] rounded-[1.75rem] border-4 border-ink bg-white"
+              />
+            ) : heroItem ? (
+              <img
+                src={heroItem.afterUrl}
+                alt={heroItem.title}
+                className="relative aspect-[4/5] w-full rounded-[1.75rem] border-4 border-ink bg-white object-cover"
               />
             ) : (
               <div className="skeleton relative aspect-[4/5] rounded-[1.75rem] border-4 border-ink" />
@@ -178,12 +189,14 @@ export default function HomePage() {
             >
               1:1 · 3:4 · 9:16
             </span>
-            <span
-              className="sticker absolute -bottom-5 left-8 animate-float bg-pop-pink text-white [animation-delay:-4s]"
-              style={{ '--tilt': '-4deg' } as CSSProperties}
-            >
-              Kéo để xem trước / sau ⟷
-            </span>
+            {heroItem && (
+              <span
+                className="sticker absolute -bottom-5 left-8 animate-float bg-pop-pink text-white [animation-delay:-4s]"
+                style={{ '--tilt': '-4deg' } as CSSProperties}
+              >
+                {heroItem.beforeUrl ? 'Kéo để xem trước / sau ⟷' : heroItem.sample ? 'Ảnh minh họa' : heroItem.title}
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -282,31 +295,51 @@ export default function HomePage() {
               </defs>
               <circle cx="100" cy="100" r="52" fill="var(--color-pop-lime)" />
               <text fontSize="17" fontWeight="800" fill="white" letterSpacing="3">
-                <textPath href="#promo-circle">DÙNG THỬ MIỄN PHÍ ✦ KHÔNG CẦN THẺ ✦</textPath>
+                <textPath href="#promo-circle">
+                  {showTrial ? 'DÙNG THỬ MIỄN PHÍ ✦ KHÔNG CẦN THẺ ✦' : 'TẶNG CREDIT ✦ SHOP MỚI ✦ KHÔNG CẦN THẺ ✦'}
+                </textPath>
               </text>
               <text x="100" y="110" textAnchor="middle" fontSize="28" fontWeight="900" fill="var(--color-ink)">
-                FREE
+                {showTrial ? 'FREE' : '+30'}
               </text>
             </svg>
             <p className="sticker relative bg-white text-ink">Ưu đãi shop mới</p>
-            <h2 className="relative mt-5 max-w-2xl text-4xl leading-tight font-black md:text-5xl">
-              Gửi 5 ảnh sản phẩm, team làm thử <span className="text-pop-lime">miễn phí</span>.
-            </h2>
-            <p className="relative mt-4 max-w-xl text-white/85">
-              Ưng thì mới mua gói, không ưng cũng chẳng mất gì. Nhắn Zalo, gửi ảnh, đợi nhận ảnh xịn.
-            </p>
+            {showTrial && CONTACT.primary ? (
+              <>
+                <h2 className="relative mt-5 max-w-2xl text-4xl leading-tight font-black md:text-5xl">
+                  Gửi {FREE_TRIAL_IMAGES} ảnh sản phẩm, team làm thử <span className="text-pop-lime">miễn phí</span>.
+                </h2>
+                <p className="relative mt-4 max-w-xl text-white/85">
+                  Ưng thì mới mua gói, không ưng cũng chẳng mất gì. Nhắn {CONTACT.primary.channel}, gửi ảnh, đợi nhận
+                  ảnh xịn.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="relative mt-5 max-w-2xl text-4xl leading-tight font-black md:text-5xl">
+                  Tặng <span className="text-pop-lime">30 credit</span> để thử ngay hôm nay.
+                </h2>
+                <p className="relative mt-4 max-w-xl text-white/85">
+                  Đủ để làm khoảng 15 ảnh sản phẩm. Không cần thẻ, lỗi AI tự hoàn credit.
+                </p>
+              </>
+            )}
             <div className="relative mt-8 flex flex-wrap gap-3">
-              <a
-                href={CONTACT.zaloUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-white px-8 py-4 font-bold text-ink transition hover:scale-105"
-              >
-                Gửi ảnh qua Zalo
-              </a>
+              {showTrial && CONTACT.primary && (
+                <a
+                  href={CONTACT.primary.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-white px-8 py-4 font-bold text-ink transition hover:scale-105"
+                >
+                  Gửi ảnh qua {CONTACT.primary.channel}
+                </a>
+              )}
               <Link
                 to="/studio"
-                className="rounded-full border-2 border-white px-8 py-4 font-bold transition hover:bg-white/10"
+                className={`rounded-full px-8 py-4 font-bold transition ${
+                  showTrial ? 'border-2 border-white hover:bg-white/10' : 'bg-white text-ink hover:scale-105'
+                }`}
               >
                 Tự làm trên AI Studio
               </Link>
@@ -320,7 +353,14 @@ export default function HomePage() {
         <Reveal className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="font-bold text-pop-pink uppercase">Tác phẩm</p>
-            <h2 className="mt-2 text-4xl font-black md:text-5xl">Shop thật, ảnh thật</h2>
+            <h2 className="mt-2 text-4xl font-black md:text-5xl">
+              {onlySamples ? 'Ảnh mẫu theo phong cách' : 'Shop thật, ảnh thật'}
+            </h2>
+            {onlySamples && (
+              <p className="mt-2 max-w-xl text-sm text-ink/60">
+                Ảnh minh họa phong cách, không phải sản phẩm của khách hàng. Tác phẩm thật sẽ được cập nhật sớm.
+              </p>
+            )}
           </div>
           <div className="flex gap-2 rounded-full border-2 border-ink bg-white p-1">
             {FILTERS.map((f) => (
@@ -361,6 +401,11 @@ export default function HomePage() {
                 <span className="sticker absolute top-3 left-3 bg-white">
                   {item.category === 'COSMETICS' ? 'Mỹ phẩm' : 'Thời trang'}
                 </span>
+                {item.sample && (
+                  <span className="absolute top-3 right-3 rounded-full bg-ink/70 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                    Ảnh minh họa
+                  </span>
+                )}
                 {item.beforeUrl && (
                   <span className="absolute right-3 bottom-3 rounded-full bg-ink/80 px-3 py-1 text-xs font-semibold text-white backdrop-blur transition group-hover:bg-pop-pink">
                     Rê chuột xem ảnh gốc

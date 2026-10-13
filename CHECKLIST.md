@@ -22,11 +22,16 @@ Mức ưu tiên:
 
 ## 1. Chặn lỗi nghiêm trọng (P0)
 
-- [ ] **Đưa code vào git** và đẩy lên một repo riêng tư. Hiện thư mục chưa phải git repo, nên một lần xóa nhầm là mất hết.
-- [ ] **Sửa nội dung đang sai sự thật trên trang chủ.** Mục "Shop thật, ảnh thật" đang dùng ảnh Unsplash và tên shop bịa ("Glow Skin", "Mộc Beauty"... trong `DataSeeder.java`). Thay bằng ảnh thật bạn làm cho khách (có sự đồng ý của họ), hoặc đổi tiêu đề thành "Ảnh mẫu".
-- [ ] **Thanh kéo trước/sau** đang ghép hai ảnh không liên quan đến nhau. Thay bằng một cặp ảnh thật: ảnh chụp điện thoại và ảnh sau khi xử lý.
-- [ ] Thay **số Zalo, email và các câu khuyến mãi** mẫu trong `frontend/src/config.ts`.
-- [ ] **Quyết định có giữ banner "Gửi 5 ảnh, làm thử miễn phí" hay không.** Đây là cam kết với khách, nên chỉ giữ nếu bạn thật sự làm được.
+- [x] **Đưa code vào git** (nhánh `main`, đã có commit đầu tiên, `.gitignore` loại `node_modules`, `target`, `storage`, `.env`).
+  - [ ] Còn lại: đẩy lên một repo riêng tư (GitHub hoặc Cursor) để có bản sao lưu bên ngoài máy.
+- [x] **Sửa nội dung sai sự thật.** Ảnh Unsplash được đánh dấu `sample` và ghi "Ảnh minh họa", không còn tên shop bịa. Tiêu đề tự đổi thành "Ảnh mẫu theo phong cách" khi chưa có tác phẩm thật. Có test `PortfolioSeedTests` chặn việc tái phạm.
+  - [ ] Còn lại: thay ảnh minh họa bằng ảnh thật bạn làm cho khách (có sự đồng ý của họ), lưu với `sample = false`. Ảnh minh họa hiện có logo các thương hiệu thật (Act+Acre, Curology...), nên thay càng sớm càng tốt.
+- [x] **Thanh kéo trước/sau** chỉ hiện khi có một cặp ảnh thật (`beforeUrl` có giá trị và `sample = false`). Khi chưa có, hero hiện ảnh tĩnh kèm nhãn "Ảnh minh họa".
+  - [ ] Còn lại: thêm ít nhất 1 cặp trước/sau thật cho hero.
+- [x] **Số Zalo, email và ưu đãi làm thử** được chuyển sang `frontend/.env` (mẫu ở `frontend/.env.example`). Khi chưa cấu hình, nút Zalo, link email và các câu nhắc tới Zalo tự ẩn; không còn số giả trên trang.
+  - [ ] Còn lại: tạo `frontend/.env` với `VITE_ZALO_PHONE`, `VITE_CONTACT_EMAIL` thật.
+- [x] **Banner làm thử miễn phí** chỉ hiện khi `VITE_FREE_TRIAL_IMAGES > 0` **và** đã có kênh liên hệ. Ngược lại, banner chuyển sang ưu đãi "Tặng 30 credit" (đã có thật trong hệ thống).
+  - [ ] Còn lại: chốt số ảnh làm thử (mặc định 5; đặt `0` để tắt ưu đãi).
 
 ## 2. Tài khoản và bảo mật (P0)
 

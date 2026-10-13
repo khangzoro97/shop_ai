@@ -99,11 +99,21 @@ export default function Layout() {
               <p className="mb-2 font-bold text-white">Fortfio</p>
               <p>Ảnh & video AI cho shop thời trang, mỹ phẩm Việt.</p>
             </div>
-            <div>
-              <p className="mb-2 font-bold text-white">Liên hệ</p>
-              <p>Zalo: {CONTACT.zaloLabel}</p>
-              <p>{CONTACT.email}</p>
-            </div>
+            {(CONTACT.zaloUrl || CONTACT.email) && (
+              <div>
+                <p className="mb-2 font-bold text-white">Liên hệ</p>
+                {CONTACT.zaloUrl && (
+                  <a href={CONTACT.zaloUrl} target="_blank" rel="noreferrer" className="block hover:text-pop-lime">
+                    Zalo: {CONTACT.zaloLabel}
+                  </a>
+                )}
+                {CONTACT.email && (
+                  <a href={`mailto:${CONTACT.email}`} className="block hover:text-pop-lime">
+                    {CONTACT.email}
+                  </a>
+                )}
+              </div>
+            )}
             <div>
               <p className="mb-2 font-bold text-white">Khám phá</p>
               {NAV_LINKS.map((link) => (
@@ -117,21 +127,23 @@ export default function Layout() {
         </div>
       </footer>
 
-      <a
-        href={CONTACT.zaloUrl}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Chat Zalo với Fortfio"
-        className="group fixed right-5 bottom-5 z-40 flex items-center gap-2"
-      >
-        <span className="hidden rounded-full bg-white px-4 py-2 text-sm font-bold shadow-lg transition group-hover:block">
-          Chat Zalo ngay
-        </span>
-        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#0068ff] text-sm font-black text-white shadow-xl transition group-hover:scale-110">
-          <span className="absolute inset-0 animate-ping rounded-full bg-[#0068ff]/50" />
-          <span className="relative">Zalo</span>
-        </span>
-      </a>
+      {CONTACT.zaloUrl && (
+        <a
+          href={CONTACT.zaloUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Chat Zalo với Fortfio"
+          className="group fixed right-5 bottom-5 z-40 flex items-center gap-2"
+        >
+          <span className="hidden rounded-full bg-white px-4 py-2 text-sm font-bold shadow-lg transition group-hover:block">
+            Chat Zalo ngay
+          </span>
+          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#0068ff] text-sm font-black text-white shadow-xl transition group-hover:scale-110">
+            <span className="absolute inset-0 animate-ping rounded-full bg-[#0068ff]/50" />
+            <span className="relative">Zalo</span>
+          </span>
+        </a>
+      )}
     </div>
   )
 }

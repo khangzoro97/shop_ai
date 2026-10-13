@@ -47,6 +47,10 @@ public class PortfolioItem {
 
 	private int sortOrder;
 
+	/** True for illustrative stock images; only real client work may be shown as case studies. */
+	@Column(nullable = false)
+	private boolean sample;
+
 	public enum Category {
 		FASHION, COSMETICS
 	}

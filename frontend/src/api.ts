@@ -45,6 +45,7 @@ export interface PortfolioItem {
   outputType: OutputType
   beforeUrl: string | null
   afterUrl: string
+  sample: boolean
 }
 
 export interface CreateGenerationRequest {

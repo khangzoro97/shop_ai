@@ -34,11 +34,13 @@ public class PortfolioController {
 			Workflow workflow,
 			Workflow.OutputType outputType,
 			String beforeUrl,
-			String afterUrl) {
+			String afterUrl,
+			boolean sample) {
 
 		static PortfolioResponse from(PortfolioItem item) {
 			return new PortfolioResponse(item.getId(), item.getTitle(), item.getClient(), item.getCategory(),
-					item.getWorkflow(), item.getWorkflow().getOutputType(), item.getBeforeUrl(), item.getAfterUrl());
+					item.getWorkflow(), item.getWorkflow().getOutputType(), item.getBeforeUrl(), item.getAfterUrl(),
+					item.isSample());
 		}
 	}
 }
