@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { api, fileToDataUrl, type Generation, type OutputFormat, type Placement, type Workflow } from '../api.ts'
 import { useAuth } from '../auth/context.ts'
+import MediaPreview from '../components/MediaPreview.tsx'
 import PhoneVerifyCard from '../components/PhoneVerifyCard.tsx'
 
 const POLL_INTERVAL_MS = 3000
 
-const ASPECT_CLASS: Record<OutputFormat, string> = {
-  SQUARE: 'aspect-square',
-  PORTRAIT: 'aspect-[3/4]',
-  STORY: 'aspect-[9/16]',
+const FORMAT_LABEL: Record<OutputFormat, string> = {
+  SQUARE: '1:1',
+  PORTRAIT: '3:4',
+  STORY: '9:16',
 }
 
 const PRODUCT_TIPS = [
@@ -27,6 +28,8 @@ const TRYON_TIPS = [
 
 const VARIANT_CHOICES = [1, 2, 4]
 
+const PAGE_SIZE = 6
+
 const RUNNING_MESSAGES = ['AI đang xem sản phẩm...', 'Đang dựng bối cảnh...', 'Đang chỉnh ánh sáng...', 'Sắp xong rồi nè...']
 
 export default function StudioPage() {
@@ -34,6 +37,8 @@ export default function StudioPage() {
   const [selected, setSelected] = useState<Workflow>()
   const { account, refreshAccount } = useAuth()
   const [history, setHistory] = useState<Generation[]>([])
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [images, setImages] = useState<Record<string, string>>({})
   const [style, setStyle] = useState<string>()
   const [format, setFormat] = useState<OutputFormat>()
@@ -48,8 +53,19 @@ export default function StudioPage() {
 
   const refresh = useCallback(() => {
     refreshAccount().catch(() => {})
-    api.generations().then(setHistory).catch(() => {})
-  }, [refreshAccount])
+    api
+      .generations(page, PAGE_SIZE)
+      .then((result) => {
+        setHistory(result.items)
+        setTotalPages(result.totalPages)
+      })
+      .catch(() => {})
+  }, [refreshAccount, page])
+
+  function showNewest() {
+    if (page === 0) refresh()
+    else setPage(0)
+  }
 
   useEffect(() => {
     api.workflows().then((list) => {
@@ -110,7 +126,7 @@ export default function StudioPage() {
         prompt: prompt || undefined,
         images,
       })
-      refresh()
+      showNewest()
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -123,7 +139,7 @@ export default function StudioPage() {
     setError(undefined)
     try {
       await api.retryGeneration(id)
-      refresh()
+      showNewest()
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -385,7 +401,7 @@ export default function StudioPage() {
           )}
         </form>
 
-        <section>
+        <section id="results" className="scroll-mt-24">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-2xl font-black">Kết quả của bạn</h2>
             {hasRunning && (
@@ -403,7 +419,7 @@ export default function StudioPage() {
             </div>
           )}
 
-          <div className="grid items-start gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2">
             {history.map((g) => (
               <ResultCard
                 key={g.id}
@@ -415,6 +431,17 @@ export default function StudioPage() {
               />
             ))}
           </div>
+
+          {totalPages > 1 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={(p) => {
+                setPage(p)
+                document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            />
+          )}
         </section>
       </div>
     </div>
@@ -431,11 +458,14 @@ interface ResultCardProps {
 
 function ResultCard({ generation: g, label, retrying, retryDisabled, onRetry }: ResultCardProps) {
   const [shown, setShown] = useState(0)
-  const url = g.outputUrls[Math.min(shown, g.outputUrls.length - 1)]
+  const [previewing, setPreviewing] = useState(false)
+  const index = Math.min(shown, g.outputUrls.length - 1)
+  const url = g.outputUrls[index]
+  const video = g.outputType === 'VIDEO'
 
   return (
-    <article className="group animate-pop-in overflow-hidden rounded-3xl border-2 border-ink bg-white transition hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]">
-      <div className={`relative overflow-hidden bg-cream ${ASPECT_CLASS[g.format ?? 'SQUARE']}`}>
+    <article className="group flex animate-pop-in flex-col overflow-hidden rounded-3xl border-2 border-ink bg-white transition hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]">
+      <div className="relative aspect-[4/5] overflow-hidden bg-cream">
         {g.status === 'RUNNING' && <RunningState />}
         {g.status === 'FAILED' && (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -443,18 +473,34 @@ function ResultCard({ generation: g, label, retrying, retryDisabled, onRetry }: 
             <p className="text-sm font-medium text-red-600">{g.errorMessage}</p>
           </div>
         )}
-        {g.status === 'SUCCEEDED' &&
-          (g.outputType === 'VIDEO' ? (
-            <video src={url} controls loop className="h-full w-full animate-pop-in object-cover" />
-          ) : (
-            <img
-              key={url}
-              src={url}
-              alt={label}
-              className="h-full w-full animate-pop-in object-cover transition duration-500 group-hover:scale-105"
-            />
-          ))}
+        {g.status === 'SUCCEEDED' && (
+          <button
+            type="button"
+            onClick={() => setPreviewing(true)}
+            aria-label={`Xem ${label}`}
+            className="block h-full w-full cursor-zoom-in"
+          >
+            {video ? (
+              <video src={url} muted loop autoPlay playsInline className="h-full w-full animate-pop-in object-cover" />
+            ) : (
+              <img
+                key={url}
+                src={url}
+                alt={label}
+                className="h-full w-full animate-pop-in object-cover transition duration-500 group-hover:scale-105"
+              />
+            )}
+            <span className="absolute right-3 bottom-3 rounded-full bg-ink/70 px-3 py-1 text-xs font-bold text-white opacity-0 transition group-hover:opacity-100">
+              {video ? '▶ Xem video' : '⤢ Xem ảnh đầy đủ'}
+            </span>
+          </button>
+        )}
         {g.status === 'SUCCEEDED' && <span className="sticker absolute top-3 left-3 bg-pop-lime">Xong ✓</span>}
+        {g.format && (
+          <span className="absolute top-3 right-3 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold">
+            {FORMAT_LABEL[g.format]}
+          </span>
+        )}
       </div>
       {g.status === 'SUCCEEDED' && g.outputUrls.length > 1 && (
         <div className="flex gap-2 px-4 pt-3">
@@ -478,7 +524,7 @@ function ResultCard({ generation: g, label, retrying, retryDisabled, onRetry }: 
           ⚠ {g.qualityWarning}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
         <div className="min-w-0">
           <p className="truncate font-black">{label}</p>
           <p className="text-ink/50">{new Date(g.createdAt).toLocaleString('vi-VN')}</p>
@@ -507,8 +553,71 @@ function ResultCard({ generation: g, label, retrying, retryDisabled, onRetry }: 
           )}
         </div>
       </div>
+      {previewing && (
+        <MediaPreview
+          urls={g.outputUrls}
+          index={index}
+          video={video}
+          title={label}
+          onIndexChange={setShown}
+          onClose={() => setPreviewing(false)}
+        />
+      )}
     </article>
   )
+}
+
+function Pagination({ page, totalPages, onChange }: {
+  page: number
+  totalPages: number
+  onChange: (page: number) => void
+}) {
+  const navClass =
+    'rounded-full border-2 border-ink px-4 py-2 text-sm font-bold transition hover:bg-pop-lime disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent'
+  return (
+    <nav aria-label="Phân trang kết quả" className="mt-6 flex flex-wrap items-center justify-center gap-2">
+      <button type="button" disabled={page === 0} onClick={() => onChange(page - 1)} className={navClass}>
+        ‹ Trước
+      </button>
+      {pageNumbers(page, totalPages).map((p, i) =>
+        p === undefined ? (
+          <span key={`gap-${i}`} className="px-1 font-bold text-ink/40">
+            …
+          </span>
+        ) : (
+          <button
+            type="button"
+            key={p}
+            onClick={() => onChange(p)}
+            aria-current={p === page ? 'page' : undefined}
+            className={`h-10 w-10 rounded-full text-sm font-bold transition ${
+              p === page ? 'bg-ink text-white' : 'border-2 border-ink/10 hover:border-ink'
+            }`}
+          >
+            {p + 1}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        disabled={page >= totalPages - 1}
+        onClick={() => onChange(page + 1)}
+        className={navClass}
+      >
+        Sau ›
+      </button>
+    </nav>
+  )
+}
+
+/** First, last and the pages around the current one; undefined marks a gap. */
+function pageNumbers(page: number, totalPages: number): (number | undefined)[] {
+  const pages: (number | undefined)[] = []
+  for (let p = 0; p < totalPages; p++) {
+    if (p === 0 || p === totalPages - 1 || Math.abs(p - page) <= 1) pages.push(p)
+    else if (pages.at(-1) !== undefined) pages.push(undefined)
+  }
+  return pages
 }
 
 function ChoiceButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {

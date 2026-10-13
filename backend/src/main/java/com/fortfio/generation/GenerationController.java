@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -76,8 +77,13 @@ public class GenerationController {
 	}
 
 	@GetMapping("/generations")
-	public List<GenerationResponse> recent(@RequestParam(defaultValue = "20") int limit) {
-		return generationService.recent(currentAccount.id(), limit).stream().map(GenerationResponse::from).toList();
+	public GenerationPage list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "6") int size) {
+		Page<GenerationJob> result = generationService.page(currentAccount.id(), page, size);
+		return new GenerationPage(result.getContent().stream().map(GenerationResponse::from).toList(),
+				result.getNumber(), result.getTotalPages(), result.getTotalElements());
+	}
+
+	public record GenerationPage(List<GenerationResponse> items, int page, int totalPages, long totalItems) {
 	}
 
 	@GetMapping("/generations/{id}")

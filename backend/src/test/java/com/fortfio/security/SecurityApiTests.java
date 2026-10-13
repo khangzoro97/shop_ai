@@ -159,7 +159,11 @@ class SecurityApiTests {
 		mvc.perform(get("/api/generations/" + jobId).header(HttpHeaders.AUTHORIZATION, bearer(stranger)))
 				.andExpect(status().isNotFound());
 		mvc.perform(get("/api/generations").header(HttpHeaders.AUTHORIZATION, bearer(stranger)))
-				.andExpect(jsonPath("$.length()").value(0));
+				.andExpect(jsonPath("$.items.length()").value(0))
+				.andExpect(jsonPath("$.totalItems").value(0));
+		mvc.perform(get("/api/generations").header(HttpHeaders.AUTHORIZATION, bearer(owner)))
+				.andExpect(jsonPath("$.items[0].id").value(jobId))
+				.andExpect(jsonPath("$.totalPages").value(1));
 	}
 
 	@Test

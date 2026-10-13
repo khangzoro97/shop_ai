@@ -19,6 +19,13 @@ export interface Workflow {
   placements: { id: Placement; label: string }[]
 }
 
+export interface GenerationPage {
+  items: Generation[]
+  page: number
+  totalPages: number
+  totalItems: number
+}
+
 export interface Generation {
   id: string
   workflow: WorkflowId
@@ -136,7 +143,8 @@ export const api = {
   workflows: () => request<Workflow[]>('/workflows'),
   portfolio: (category?: Category) =>
     request<PortfolioItem[]>(`/portfolio${category ? `?category=${category}` : ''}`),
-  generations: () => request<Generation[]>('/generations'),
+  generations: (page: number, size: number) =>
+    request<GenerationPage>(`/generations?page=${page}&size=${size}`),
   generation: (id: string) => request<Generation>(`/generations/${id}`),
   createGeneration: (body: CreateGenerationRequest) => post<Generation>('/generations', body),
   retryGeneration: (id: string) => post<Generation>(`/generations/${id}/retry`, {}),

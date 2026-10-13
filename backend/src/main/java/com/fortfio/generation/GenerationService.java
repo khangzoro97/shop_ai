@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -137,8 +138,10 @@ public class GenerationService {
 		});
 	}
 
-	public List<GenerationJob> recent(Long accountId, int limit) {
-		return jobs.findByAccountIdOrderByCreatedAtDesc(accountId, PageRequest.of(0, Math.clamp(limit, 1, 100)));
+	/** Newest first; {@code page} is zero-based. */
+	public Page<GenerationJob> page(Long accountId, int page, int size) {
+		return jobs.findByAccountIdOrderByCreatedAtDesc(accountId,
+				PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 50)));
 	}
 
 	public GenerationJob get(Long accountId, UUID id) {
