@@ -1,0 +1,8 @@
+# Tests run against a real PostgreSQL started by Testcontainers (Docker required),
+# shared by every test context in the JVM.
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:17-alpine:///fortfio?TC_DAEMON=true
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test

@@ -21,6 +21,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -39,6 +40,10 @@ public class GenerationJob {
 
 	@Id
 	private UUID id = UUID.randomUUID();
+
+	/** Optimistic lock: a stale copy cannot overwrite a newer state (and refund a second time). */
+	@Version
+	private Long version;
 
 	@Column(nullable = false)
 	private Long accountId;

@@ -1,0 +1,91 @@
+# Production on a single VPS:
+#   cp .env.production.example .env   # then fill in the values
+#   docker compose -f docker-compose.prod.yml up -d --build
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fortfio
+      POSTGRES_USER: fortfio
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortfio"]
+      interval: 10s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/fortfio
+      DB_USERNAME: fortfio
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:?DOMAIN is required}
+      FAL_KEY: ${FAL_KEY:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      STORAGE_TYPE: ${STORAGE_TYPE:-local}
+      STORAGE_PUBLIC_URL: ${STORAGE_PUBLIC_URL:-/files}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    volumes:
+      - media:/app/storage
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_ZALO_PHONE: ${VITE_ZALO_PHONE:-}
+        VITE_CONTACT_EMAIL: ${VITE_CONTACT_EMAIL:-}
+        VITE_FREE_TRIAL_IMAGES: ${VITE_FREE_TRIAL_IMAGES:-5}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Daily compressed dump into ./backups, keeping 14 days. Copy them off the server too
+  # (e.g. rclone to R2/Google Drive): a backup on the same disk does not survive a disk loss.
+  db-backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - sh
+      - -c
+      - |
+        sleep 600
+        while true; do
+          pg_dump -h postgres -U fortfio fortfio | gzip > /backups/fortfio-$$(date +%F-%H%M).sql.gz
+          find /backups -name 'fortfio-*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
+
+volumes:
+  db-data:
+  media:
+  caddy-data:
+  caddy-config:

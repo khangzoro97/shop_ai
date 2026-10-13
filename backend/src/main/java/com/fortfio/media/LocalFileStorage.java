@@ -8,15 +8,17 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.fortfio.config.AppProperties;
 
 /**
- * Files are served by {@link com.fortfio.config.WebConfig} under /files/**.
- * Replace with an S3/R2 implementation before running more than one backend instance.
+ * Files are served by {@link com.fortfio.config.WebConfig} under /files/**. Only suitable for a
+ * single backend instance; use {@link S3FileStorage} (STORAGE_TYPE=s3) otherwise.
  */
 @Component
+@ConditionalOnProperty(name = "fortfio.storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalFileStorage implements FileStorage {
 
 	private final Path root;

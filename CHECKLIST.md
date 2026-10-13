@@ -17,7 +17,8 @@ Mức ưu tiên:
 - [x] Hệ thống credit: trừ an toàn khi nhiều yêu cầu cùng lúc, tự hoàn credit khi AI lỗi hoặc quá 15 phút.
 - [x] Chế độ giả lập (mock) khi chưa có `FAL_KEY`, nên phát triển không tốn tiền API.
 - [x] Đăng nhập, xác minh số điện thoại, phân quyền và các lớp bảo vệ cơ bản (chi tiết ở mục 2).
-- [x] 27 test backend, frontend build và lint sạch.
+- [x] PostgreSQL + Flyway, hỗ trợ R2/S3, bộ triển khai Docker kèm HTTPS và sao lưu (chi tiết ở mục 3).
+- [x] 29 test backend chạy trên PostgreSQL thật, frontend build và lint sạch.
 
 ---
 
@@ -44,26 +45,31 @@ Mức ưu tiên:
 - [x] **Xác minh số điện thoại bằng OTP rồi mới tặng 30 credit.** Tài khoản mới có 0 credit. Mỗi số chỉ xác minh được cho một tài khoản (ràng buộc unique trong database). Mã 6 số, hết hạn sau 5 phút, sai 5 lần thì hủy mã, phải chờ 60 giây mới gửi lại, tối đa 5 mã mỗi giờ.
   - [ ] Còn lại: nối nhà cung cấp SMS (eSMS, SpeedSMS) hoặc Zalo ZNS bằng cách viết một class mới thay cho `LoggingOtpSender`. Hiện mã chỉ được ghi vào log backend. Ở môi trường dev mã hiện luôn trên màn hình; ở profile `prod` thì không, admin có thể đọc log rồi gửi mã cho khách qua Zalo trong thời gian đầu.
 - [x] **Phân quyền ADMIN và CUSTOMER.** `/api/admin/**` chỉ dành cho ADMIN (hiện có `GET /api/admin/accounts`). Tài khoản admin được tạo khi khởi động từ biến môi trường `ADMIN_EMAIL` và `ADMIN_PASSWORD`.
-- [x] **Tắt H2 console và giới hạn actuator.** H2 console tắt ở mọi profile (bật tạm bằng `H2_CONSOLE=true` khi cần debug); actuator chỉ mở `/actuator/health`, không kèm chi tiết.
+- [x] **Bỏ H2 console và giới hạn actuator.** H2 đã được gỡ hẳn (xem mục 3); actuator chỉ mở `/actuator/health`, không kèm chi tiết.
 - [x] **Giới hạn số lần gọi:** 6 lần tạo ảnh mỗi phút cho mỗi shop, 10 lần đăng ký hoặc đăng nhập mỗi phút cho mỗi IP.
   - [ ] Còn lại: bộ đếm đang nằm trong bộ nhớ của một server. Chuyển sang Redis (ví dụ Bucket4j) trước khi chạy nhiều server.
 - [x] **Kiểm tra ảnh tải lên ở backend:** chỉ nhận ảnh JPG, PNG, WebP tải lên từ máy (kiểm tra cả chữ ký file, không chỉ tiền tố), tối đa 6MB mỗi ảnh và 20MB mỗi request. Không còn nhận link `https://` do người dùng nhập.
 - [x] **Chặn SSRF:** `ImageLoader` chỉ tải ảnh từ `fal.media` và `*.fal.media`, không đi theo chuyển hướng (redirect). Danh sách domain nằm ở `fortfio.uploads.allowed-remote-hosts`.
-- [ ] Chạy CORS với domain thật và chỉ dùng HTTPS. Profile `prod` đã đọc CORS từ `CORS_ALLOWED_ORIGINS` và nhận header HTTPS từ reverse proxy; còn lại là cài SSL khi có domain (xem mục 3).
+- [x] **CORS theo domain thật và chỉ dùng HTTPS:** `docker-compose.prod.yml` đặt CORS bằng `https://$DOMAIN`, Caddy tự chuyển http sang https và gửi header HSTS. Chỉ còn chờ có tên miền (xem mục 3).
 - [ ] Ảnh kết quả trong `/files/...` vẫn xem được nếu có link (đường dẫn là UUID nên không đoán được). Nếu khách cần bảo mật hơn, dùng link có chữ ký và thời hạn khi chuyển sang R2/S3.
 
 ## 3. Dữ liệu và hạ tầng (P0)
 
-- [ ] **Chuyển hẳn sang PostgreSQL.** Profile mặc định đang dùng H2 trong bộ nhớ, nên khởi động lại là mất toàn bộ tài khoản, credit và lịch sử.
-- [ ] **Quản lý thay đổi database bằng Flyway** thay cho `ddl-auto: update`.
-- [ ] **Chuyển kho file sang Cloudflare R2 hoặc S3.** Hiện file lưu trên ổ đĩa server (`LocalFileStorage`), không dùng được khi chạy nhiều server.
-- [ ] **Sao chép kết quả của các quy trình gọi AI một lần** (ảnh sáng tạo, thử đồ, video) về kho lưu trữ của mình. Hiện chúng vẫn là link của fal, có thể hết hạn.
-- [ ] **Sửa lỗi có thể hoàn credit 2 lần.** Trong `GenerationService.failAndRefund`, việc hoàn credit và lưu trạng thái job không nằm chung một transaction. Nếu lưu job thất bại, lần kiểm tra sau có thể hoàn thêm một lần nữa. Gộp hai việc vào cùng một transaction.
-- [ ] **Khóa tác vụ chạy định kỳ** (ví dụ ShedLock) trước khi chạy hơn 1 server, để hai server không cùng xử lý một job.
-- [ ] Triển khai lên server: VPS hoặc Railway/Render cho backend, Vercel/Netlify hoặc Nginx cho frontend.
-- [ ] Mua tên miền, cài SSL, sao lưu database hằng ngày.
-- [ ] Giám sát lỗi bằng Sentry, kèm log tập trung.
-- [ ] Đặt **giới hạn chi tiêu và cảnh báo chi phí** trên tài khoản fal.ai.
+- [x] **Chuyển hẳn sang PostgreSQL.** Đã bỏ H2. Khi phát triển trên máy, chạy `docker compose up -d postgres` ở thư mục gốc trước khi bật backend. Test tự bật một Postgres riêng bằng Testcontainers (cần Docker đang chạy). Đã thử: khởi động lại backend thì tài khoản, credit và lịch sử vẫn còn.
+- [x] **Quản lý database bằng Flyway** (`backend/src/main/resources/db/migration`). Hibernate chỉ còn kiểm tra schema (`ddl-auto: validate`). Muốn đổi cấu trúc bảng thì thêm file `V2__...sql`, không sửa file `V1` đã chạy.
+- [x] **Hỗ trợ Cloudflare R2 hoặc S3** (`S3FileStorage`), bật bằng `STORAGE_TYPE=s3` cùng các biến `S3_*` và `STORAGE_PUBLIC_URL`. Đã thử với một giả lập S3: ảnh được ghi và đọc lại để ghép, link công khai mở được.
+  - [ ] Còn lại: tạo bucket R2, bật truy cập công khai (hoặc gắn domain như `media.fortfio.vn`), tạo API token rồi điền vào `.env` trên server.
+- [x] **Sao chép kết quả cuối về kho lưu trữ của mình** (ảnh sáng tạo, thử đồ, video) ngay khi AI trả về, chỉ từ các domain fal được phép, tối đa 150MB. Nếu tải về thất bại, hệ thống giữ link của fal và ghi log lỗi.
+- [x] **Sửa lỗi hoàn credit 2 lần.** Lưu job và hoàn credit giờ nằm trong cùng một transaction, và job có cột `version` (khóa lạc quan). Một bản job cũ không thể ghi đè trạng thái mới để hoàn thêm lần nữa. Có test cho cả trường hợp bản job cũ và hai lượt xử lý chạy song song.
+- [x] **Khóa tác vụ định kỳ bằng ShedLock** (bảng `shedlock`): chỉ một server được xử lý danh sách job tại một thời điểm.
+- [x] **Bộ triển khai lên VPS** (`docker-compose.prod.yml`): Postgres, backend, Caddy (phục vụ frontend, chuyển tiếp `/api` và `/files`, tự cấp và gia hạn HTTPS) và dịch vụ sao lưu database. Đã chạy thử toàn bộ trên máy: HTTPS, tự chuyển từ http sang https, header bảo mật, đăng nhập admin, Flyway và sao lưu đều hoạt động.
+  - [ ] Còn lại: thuê VPS (2 vCPU, 4GB RAM là đủ lúc đầu), cài Docker, chép `.env.production.example` thành `.env` rồi điền giá trị, sau đó chạy `docker compose -f docker-compose.prod.yml up -d --build`.
+- [ ] **Mua tên miền** và trỏ DNS (bản ghi A) về IP của VPS. Caddy tự lo phần SSL khi `DOMAIN` đúng và cổng 80, 443 đang mở.
+- [x] **Sao lưu database hằng ngày:** dịch vụ `db-backup` dump và nén database mỗi ngày vào `./backups`, giữ 14 ngày.
+  - [ ] Còn lại: chép thư mục backup ra ngoài server (ví dụ rclone lên R2 hoặc Google Drive), và thử khôi phục một lần để chắc bản sao lưu dùng được.
+- [x] **Sentry đã được tích hợp vào backend,** chỉ hoạt động khi có `SENTRY_DSN`.
+  - [ ] Còn lại: tạo project trên sentry.io, điền `SENTRY_DSN`; thêm Sentry cho frontend nếu cần; gom log tập trung khi có nhiều server.
+- [ ] Đặt **giới hạn chi tiêu và cảnh báo chi phí** trên tài khoản fal.ai (làm trên trang quản lý của fal, không cần code).
 
 ## 4. Chất lượng AI (P0)
 

@@ -24,7 +24,11 @@ public record AppProperties(
 	public record Cors(List<String> allowedOrigins) {
 	}
 
-	public record Storage(String localDir, String publicBaseUrl) {
+	public record Storage(String type, String localDir, String publicBaseUrl, S3 s3) {
+	}
+
+	/** S3-compatible object storage; Cloudflare R2 uses the same API with a custom endpoint. */
+	public record S3(String endpoint, String region, String bucket, String accessKey, String secretKey) {
 	}
 
 	public record Fal(
@@ -68,7 +72,8 @@ public record AppProperties(
 	 * @param allowedRemoteHosts hosts the server may download images from (AI results);
 	 *                           a leading "*." also matches subdomains
 	 */
-	public record Uploads(DataSize maxImageSize, DataSize maxRequestSize, List<String> allowedRemoteHosts) {
+	public record Uploads(DataSize maxImageSize, DataSize maxRequestSize, DataSize maxDownloadSize,
+			List<String> allowedRemoteHosts) {
 	}
 
 	public record Admin(String email, String password) {

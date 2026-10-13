@@ -2,17 +2,15 @@ spring:
   application:
     name: fortfio
   datasource:
-    url: jdbc:h2:mem:fortfio;DB_CLOSE_DELAY=-1
-    username: sa
-    password:
+    # Local development: `docker compose up -d postgres` from the project root.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fortfio}
+    username: ${DB_USERNAME:fortfio}
+    password: ${DB_PASSWORD:fortfio}
   jpa:
     hibernate:
-      ddl-auto: update
+      # Schema changes go through Flyway migrations in db/migration.
+      ddl-auto: validate
     open-in-view: false
-  h2:
-    console:
-      # Only for local debugging: H2_CONSOLE=true
-      enabled: ${H2_CONSOLE:false}
   servlet:
     multipart:
       max-file-size: 10MB
@@ -32,14 +30,30 @@ management:
     health:
       show-details: never
 
+sentry:
+  # Error monitoring is off while SENTRY_DSN is empty.
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:development}
+  send-default-pii: false
+
 fortfio:
   cors:
     allowed-origins: http://localhost:5173
   signup-credits: 30
   job-timeout: 15m
   storage:
+    # local: files on this server's disk, served under /files. s3: Cloudflare R2 or Amazon S3.
+    type: ${STORAGE_TYPE:local}
     local-dir: ${STORAGE_DIR:./storage}
+    # local: /files. s3: the bucket's public URL, e.g. https://media.example.com
     public-base-url: ${STORAGE_PUBLIC_URL:/files}
+    s3:
+      # R2: https://<account-id>.r2.cloudflarestorage.com (region "auto"). Leave empty for Amazon S3.
+      endpoint: ${S3_ENDPOINT:}
+      region: ${S3_REGION:auto}
+      bucket: ${S3_BUCKET:}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
   fal:
     # Leave empty to run with the mock provider (no API cost).
     api-key: ${FAL_KEY:}
@@ -65,6 +79,8 @@ fortfio:
   uploads:
     max-image-size: 6MB
     max-request-size: 20MB
+    # AI results (videos included) copied into our storage.
+    max-download-size: 150MB
     allowed-remote-hosts: fal.media, "*.fal.media"
   admin:
     # Creates (or promotes) this account as ADMIN on startup.
@@ -76,16 +92,12 @@ spring:
   config:
     activate:
       on-profile: prod
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/fortfio}
-    username: ${DB_USERNAME:fortfio}
-    password: ${DB_PASSWORD:fortfio}
-  h2:
-    console:
-      enabled: false
 
 server:
   forward-headers-strategy: framework
+
+sentry:
+  environment: ${SENTRY_ENVIRONMENT:production}
 
 fortfio:
   cors:

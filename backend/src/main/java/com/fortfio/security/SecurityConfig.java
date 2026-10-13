@@ -45,11 +45,10 @@ public class SecurityConfig {
 				.csrf(csrf -> csrf.disable())
 				.cors(Customizer.withDefaults())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/workflows", "/api/portfolio").permitAll()
-						.requestMatchers("/files/**", "/actuator/health", "/error", "/h2-console/**").permitAll()
+						.requestMatchers("/files/**", "/actuator/health", "/error").permitAll()
 						.requestMatchers("/api/admin/**").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(roleConverter())));

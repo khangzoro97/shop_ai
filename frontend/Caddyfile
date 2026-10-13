@@ -1,0 +1,26 @@
+# With a real domain in DOMAIN, Caddy obtains and renews the HTTPS certificate automatically
+# (ports 80 and 443 must be open and the domain's DNS must point to this server).
+{$DOMAIN:localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8088
+	}
+
+	handle /files/* {
+		reverse_proxy backend:8088
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

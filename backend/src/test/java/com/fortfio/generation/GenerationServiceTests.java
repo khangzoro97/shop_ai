@@ -12,6 +12,9 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.imageio.ImageIO;
 
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -49,6 +53,9 @@ class GenerationServiceTests {
 
 	@Autowired
 	private AccountRepository accounts;
+
+	@Autowired
+	private GenerationJobRepository jobs;
 
 	@Autowired
 	private AppProperties properties;
@@ -165,6 +172,42 @@ class GenerationServiceTests {
 
 		GenerationJob job = service.create(accountId, Workflow.PRODUCT_EXACT, null, null, null, PRODUCT);
 		service.pollRunningJobs();
+
+		assertThat(service.get(accountId, job.getId()).getStatus()).isEqualTo(GenerationStatus.FAILED);
+		assertThat(credits()).isEqualTo(10);
+	}
+
+	@Test
+	void staleJobCopyCannotRefundASecondTime() {
+		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
+		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		GenerationJob stale = jobs.findById(job.getId()).orElseThrow();
+		GenerationJob fresh = jobs.findById(job.getId()).orElseThrow();
+
+		fresh.fail("timeout");
+		service.persist(fresh);
+		stale.fail("timeout");
+
+		assertThatThrownBy(() -> service.persist(stale)).isInstanceOf(OptimisticLockingFailureException.class);
+		assertThat(credits()).isEqualTo(10);
+	}
+
+	@Test
+	void concurrentPollersRefundOnlyOnce() throws Exception {
+		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
+		when(aiProvider.status(any())).thenAnswer(invocation -> {
+			Thread.sleep(300);
+			return Status.COMPLETED;
+		});
+		when(aiProvider.result(any())).thenThrow(new RuntimeException("422 content policy"));
+		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+
+		try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+			Future<?> first = pool.submit(service::pollRunningJobs);
+			Future<?> second = pool.submit(service::pollRunningJobs);
+			first.get();
+			second.get();
+		}
 
 		assertThat(service.get(accountId, job.getId()).getStatus()).isEqualTo(GenerationStatus.FAILED);
 		assertThat(credits()).isEqualTo(10);
