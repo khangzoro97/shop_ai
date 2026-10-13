@@ -1,0 +1,18 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Backend
+backend/target/
+backend/storage/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

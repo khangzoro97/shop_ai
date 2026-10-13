@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: fortfio
+  datasource:
+    url: jdbc:h2:mem:fortfio;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 30MB
+
+server:
+  port: ${PORT:8088}
+  tomcat:
+    max-http-form-post-size: 30MB
+
+fortfio:
+  cors:
+    allowed-origins: http://localhost:5173
+  signup-credits: 30
+  job-timeout: 15m
+  storage:
+    local-dir: ${STORAGE_DIR:./storage}
+    public-base-url: ${STORAGE_PUBLIC_URL:/files}
+  fal:
+    # Leave empty to run with the mock provider (no API cost).
+    api-key: ${FAL_KEY:}
+    queue-url: https://queue.fal.run
+    background-removal-model: fal-ai/birefnet/v2
+    backdrop-model: fal-ai/flux/dev
+    models:
+      PRODUCT_PHOTO: fal-ai/nano-banana/edit
+      VIRTUAL_TRYON: fal-ai/kling/v1-5/kolors-virtual-try-on
+      PRODUCT_VIDEO: fal-ai/kling-video/v2.1/standard/image-to-video
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fortfio}
+    username: ${DB_USERNAME:fortfio}
+    password: ${DB_PASSWORD:fortfio}
+  h2:
+    console:
+      enabled: false
+
+fortfio:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}

@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: fortfio
+      POSTGRES_USER: fortfio
+      POSTGRES_PASSWORD: fortfio
+    ports:
+      - "5432:5432"
+    volumes:
+      - fortfio-db:/var/lib/postgresql/data
+
+volumes:
+  fortfio-db:

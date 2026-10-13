@@ -1,0 +1,142 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+
+  --color-ink: #16121f;
+  --color-cream: #fff8f3;
+  --color-pop-pink: #ff3d8b;
+  --color-pop-violet: #7b5cff;
+  --color-pop-lime: #c6f432;
+  --color-pop-peach: #ffb38a;
+  --color-blush-50: #fdf6f4;
+  --color-blush-100: #f9e8e3;
+  --color-blush-500: #ff3d8b;
+  --color-blush-600: #e62e78;
+
+  --animate-marquee: marquee 35s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float 9s ease-in-out infinite;
+  --animate-blob: blob 18s ease-in-out infinite;
+  --animate-gradient: gradient-pan 8s ease infinite;
+  --animate-spin-slow: spin 14s linear infinite;
+  --animate-pop-in: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-shine: shine 3.5s ease-in-out infinite;
+  --animate-wiggle: wiggle 0.5s ease-in-out;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+    50% { transform: translateY(-14px) rotate(var(--tilt, 0deg)); }
+  }
+  @keyframes blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(40px, -50px) scale(1.1); }
+    66% { transform: translate(-30px, 30px) scale(0.92); }
+  }
+  @keyframes gradient-pan {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.9) translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  @keyframes shine {
+    0%, 60% { transform: translateX(-120%) skewX(-20deg); }
+    100% { transform: translateX(220%) skewX(-20deg); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(var(--tilt, 0deg)); }
+    25% { transform: rotate(calc(var(--tilt, 0deg) - 6deg)); }
+    75% { transform: rotate(calc(var(--tilt, 0deg) + 6deg)); }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-cream text-ink antialiased;
+  }
+  ::selection {
+    @apply bg-pop-lime text-ink;
+  }
+}
+
+@layer components {
+  /* Vertical padding keeps Vietnamese diacritics (dấu nặng, dấu hỏi) inside the clipped background. */
+  .text-gradient {
+    @apply bg-linear-to-r from-pop-pink via-pop-violet to-pop-pink bg-clip-text text-transparent;
+    background-size: 200% auto;
+    animation: var(--animate-gradient);
+    padding-block: 0.12em;
+    box-decoration-break: clone;
+  }
+
+  .bg-gradient-pop {
+    @apply bg-linear-to-r from-pop-pink via-pop-violet to-pop-pink;
+    background-size: 200% auto;
+    animation: var(--animate-gradient);
+  }
+
+  /* Diagonal light sweep for primary buttons; needs `relative overflow-hidden` on the parent. */
+  .shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+    animation: var(--animate-shine);
+    pointer-events: none;
+  }
+
+  .sticker {
+    @apply inline-flex items-center gap-1.5 rounded-full border-2 border-ink px-3 py-1 text-xs font-bold shadow-[3px_3px_0_0_var(--color-ink)];
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #f3ece8 25%, #fde2ee 50%, #f3ece8 75%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--delay, 0ms);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
