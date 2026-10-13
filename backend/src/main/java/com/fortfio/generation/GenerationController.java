@@ -1,5 +1,6 @@
 package com.fortfio.generation;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fortfio.account.CurrentAccount;
 import com.fortfio.ai.OutputFormat;
 import com.fortfio.ai.Workflow;
+import com.fortfio.config.AppProperties;
+import com.fortfio.security.RateLimiter;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -33,6 +36,8 @@ public class GenerationController {
 
 	private final GenerationService generationService;
 	private final CurrentAccount currentAccount;
+	private final RateLimiter rateLimiter;
+	private final AppProperties properties;
 
 	@GetMapping("/workflows")
 	public List<WorkflowResponse> workflows() {
@@ -42,7 +47,10 @@ public class GenerationController {
 	@PostMapping("/generations")
 	@ResponseStatus(HttpStatus.ACCEPTED)
 	public GenerationResponse create(@Valid @RequestBody CreateGenerationRequest request) {
-		GenerationJob job = generationService.create(currentAccount.id(),
+		Long accountId = currentAccount.id();
+		rateLimiter.check("generate:" + accountId, properties.rateLimit().generationsPerMinute(), Duration.ofMinutes(1),
+				"Bạn đang tạo quá nhanh, hãy đợi 1 phút rồi thử lại");
+		GenerationJob job = generationService.create(accountId,
 				request.workflow(), request.style(), request.prompt(), request.format(), request.images());
 		return GenerationResponse.from(job);
 	}

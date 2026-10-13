@@ -11,16 +11,26 @@ spring:
     open-in-view: false
   h2:
     console:
-      enabled: true
+      # Only for local debugging: H2_CONSOLE=true
+      enabled: ${H2_CONSOLE:false}
   servlet:
     multipart:
-      max-file-size: 15MB
-      max-request-size: 30MB
+      max-file-size: 10MB
+      max-request-size: 20MB
 
 server:
   port: ${PORT:8088}
   tomcat:
-    max-http-form-post-size: 30MB
+    max-http-form-post-size: 2MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 fortfio:
   cors:
@@ -40,6 +50,26 @@ fortfio:
       PRODUCT_PHOTO: fal-ai/nano-banana/edit
       VIRTUAL_TRYON: fal-ai/kling/v1-5/kolors-virtual-try-on
       PRODUCT_VIDEO: fal-ai/kling-video/v2.1/standard/image-to-video
+  auth:
+    jwt-secret: ${JWT_SECRET:}
+    token-ttl: 7d
+    otp:
+      ttl: 5m
+      resend-cooldown: 60s
+      max-attempts: 5
+      expose-code: true
+  rate-limit:
+    generations-per-minute: 6
+    auth-per-minute: 10
+    otp-per-hour: 5
+  uploads:
+    max-image-size: 6MB
+    max-request-size: 20MB
+    allowed-remote-hosts: fal.media, "*.fal.media"
+  admin:
+    # Creates (or promotes) this account as ADMIN on startup.
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
 
 ---
 spring:
@@ -54,6 +84,14 @@ spring:
     console:
       enabled: false
 
+server:
+  forward-headers-strategy: framework
+
 fortfio:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  auth:
+    # Required in production: at least 32 random characters.
+    jwt-secret: ${JWT_SECRET}
+    otp:
+      expose-code: false

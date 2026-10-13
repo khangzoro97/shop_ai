@@ -41,7 +41,7 @@ import com.fortfio.media.TestImages;
 })
 class GenerationServiceTests {
 
-	private static final Map<String, String> PRODUCT = Map.of("product", "https://example.com/serum.jpg");
+	private static final Map<String, String> PRODUCT = Map.of("product", TestImages.redProductDataUrl());
 	private static final Submission SUBMISSION = new Submission("req-1", "https://queue/status", "https://queue/result");
 
 	@Autowired
@@ -63,7 +63,7 @@ class GenerationServiceTests {
 
 	@BeforeEach
 	void setUp() {
-		accountId = accounts.save(new Account("shop-" + System.nanoTime() + "@test.vn", "Test Shop", 10)).getId();
+		accountId = accounts.save(new Account("shop-" + System.nanoTime() + "@test.vn", "{noop}unused", "Test Shop", 10)).getId();
 	}
 
 	@Test

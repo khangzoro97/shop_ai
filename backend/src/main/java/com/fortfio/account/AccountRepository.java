@@ -11,6 +11,10 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
 	Optional<Account> findByEmail(String email);
 
+	boolean existsByEmail(String email);
+
+	boolean existsByPhone(String phone);
+
 	@Modifying
 	@Query("update Account a set a.credits = a.credits - :amount where a.id = :id and a.credits >= :amount")
 	int tryCharge(@Param("id") Long id, @Param("amount") int amount);

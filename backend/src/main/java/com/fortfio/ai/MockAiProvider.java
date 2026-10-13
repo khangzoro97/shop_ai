@@ -1,11 +1,21 @@
 package com.fortfio.ai;
 
+import java.awt.Color;
+import java.awt.GradientPaint;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
+import java.util.Base64;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.imageio.ImageIO;
 
 /**
  * Used when no FAL_KEY is configured, so the full flow can be developed without API cost.
@@ -15,7 +25,7 @@ public class MockAiProvider implements AiProvider {
 
 	private static final Duration FAKE_LATENCY = Duration.ofSeconds(4);
 	private static final String SAMPLE_IMAGE = "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1024";
-	private static final String SAMPLE_BACKDROP = "https://images.unsplash.com/photo-1557683316-973673baf926?w=1200";
+	private static final String SAMPLE_BACKDROP = gradientBackdrop();
 	private static final String SAMPLE_VIDEO = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
 	private final Map<String, Instant> startedAt = new ConcurrentHashMap<>();
@@ -53,5 +63,21 @@ public class MockAiProvider implements AiProvider {
 			return SAMPLE_BACKDROP;
 		}
 		return SAMPLE_IMAGE;
+	}
+
+	/** Generated locally: the server only downloads images from allow-listed AI hosts. */
+	private static String gradientBackdrop() {
+		int size = 1024;
+		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = image.createGraphics();
+		g.setPaint(new GradientPaint(0, 0, new Color(0xFDE2EF), 0, size, new Color(0xD9CCFF)));
+		g.fillRect(0, 0, size, size);
+		g.dispose();
+		try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+			ImageIO.write(image, "jpg", out);
+			return "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(out.toByteArray());
+		} catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
 	}
 }

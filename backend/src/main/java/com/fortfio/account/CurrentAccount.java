@@ -1,27 +1,22 @@
 package com.fortfio.account;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
 import com.fortfio.common.ApiException;
 
-import lombok.RequiredArgsConstructor;
-
-/**
- * Resolves the caller's account. Until authentication is added every request
- * acts as the seeded demo shop, so this must not be deployed publicly as-is.
- */
+/** Resolves the caller's account id from the login token (its subject). */
 @Component
-@RequiredArgsConstructor
 public class CurrentAccount {
 
-	public static final String DEMO_EMAIL = "demo@fortfio.vn";
-
-	private final AccountRepository accounts;
-
 	public Long id() {
-		return accounts.findByEmail(DEMO_EMAIL)
-				.map(Account::getId)
-				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập"));
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		if (auth instanceof JwtAuthenticationToken token) {
+			return Long.valueOf(token.getToken().getSubject());
+		}
+		throw new ApiException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập");
 	}
 }

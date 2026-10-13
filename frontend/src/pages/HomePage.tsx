@@ -320,7 +320,7 @@ export default function HomePage() {
                   Tặng <span className="text-pop-lime">30 credit</span> để thử ngay hôm nay.
                 </h2>
                 <p className="relative mt-4 max-w-xl text-white/85">
-                  Đủ để làm khoảng 15 ảnh sản phẩm. Không cần thẻ, lỗi AI tự hoàn credit.
+                  Đủ để làm khoảng 15 ảnh sản phẩm. Chỉ cần đăng ký và xác minh số điện thoại, không cần thẻ.
                 </p>
               </>
             )}

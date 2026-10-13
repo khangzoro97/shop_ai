@@ -1,7 +1,6 @@
 package com.fortfio.config;
 
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -9,19 +8,12 @@ import com.fortfio.media.LocalFileStorage;
 
 import lombok.RequiredArgsConstructor;
 
+/** CORS is configured in SecurityConfig, so it also applies to requests rejected by security. */
 @Configuration
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-	private final AppProperties properties;
 	private final LocalFileStorage localFileStorage;
-
-	@Override
-	public void addCorsMappings(CorsRegistry registry) {
-		registry.addMapping("/api/**")
-				.allowedOrigins(properties.cors().allowedOrigins().toArray(String[]::new))
-				.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
-	}
 
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 import com.fortfio.ai.Workflow;
 
@@ -14,7 +15,11 @@ public record AppProperties(
 		int signupCredits,
 		Duration jobTimeout,
 		Storage storage,
-		Fal fal) {
+		Fal fal,
+		Auth auth,
+		RateLimit rateLimit,
+		Uploads uploads,
+		Admin admin) {
 
 	public record Cors(List<String> allowedOrigins) {
 	}
@@ -39,6 +44,37 @@ public record AppProperties(
 				throw new IllegalStateException("No fal model configured for " + workflow);
 			}
 			return model;
+		}
+	}
+
+	/**
+	 * @param jwtSecret HMAC key for login tokens; when blank a random key is generated, so
+	 *                  tokens stop working after a restart
+	 */
+	public record Auth(String jwtSecret, Duration tokenTtl, Otp otp) {
+	}
+
+	/**
+	 * @param exposeCode return the code in the API response; only for development, while no
+	 *                   SMS or Zalo sender is configured
+	 */
+	public record Otp(Duration ttl, Duration resendCooldown, int maxAttempts, boolean exposeCode) {
+	}
+
+	public record RateLimit(int generationsPerMinute, int authPerMinute, int otpPerHour) {
+	}
+
+	/**
+	 * @param allowedRemoteHosts hosts the server may download images from (AI results);
+	 *                           a leading "*." also matches subdomains
+	 */
+	public record Uploads(DataSize maxImageSize, DataSize maxRequestSize, List<String> allowedRemoteHosts) {
+	}
+
+	public record Admin(String email, String password) {
+
+		public boolean configured() {
+			return email != null && !email.isBlank() && password != null && !password.isBlank();
 		}
 	}
 }

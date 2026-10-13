@@ -16,34 +16,41 @@ Mức ưu tiên:
 - [x] Ra ảnh đúng 3 tỉ lệ sàn: 1:1, 3:4, 9:16.
 - [x] Hệ thống credit: trừ an toàn khi nhiều yêu cầu cùng lúc, tự hoàn credit khi AI lỗi hoặc quá 15 phút.
 - [x] Chế độ giả lập (mock) khi chưa có `FAL_KEY`, nên phát triển không tốn tiền API.
-- [x] 12 test backend, frontend build và lint sạch.
+- [x] Đăng nhập, xác minh số điện thoại, phân quyền và các lớp bảo vệ cơ bản (chi tiết ở mục 2).
+- [x] 27 test backend, frontend build và lint sạch.
 
 ---
 
 ## 1. Chặn lỗi nghiêm trọng (P0)
 
 - [x] **Đưa code vào git** (nhánh `main`, đã có commit đầu tiên, `.gitignore` loại `node_modules`, `target`, `storage`, `.env`).
-  - [ ] Còn lại: đẩy lên một repo riêng tư (GitHub hoặc Cursor) để có bản sao lưu bên ngoài máy.
+  - [x] Đã đẩy lên GitHub ([khangzoro97/shop_ai](https://github.com/khangzoro97/shop_ai)).
+  - [ ] Còn lại: chuyển repo sang chế độ riêng tư (hiện đang công khai).
 - [x] **Sửa nội dung sai sự thật.** Ảnh Unsplash được đánh dấu `sample` và ghi "Ảnh minh họa", không còn tên shop bịa. Tiêu đề tự đổi thành "Ảnh mẫu theo phong cách" khi chưa có tác phẩm thật. Có test `PortfolioSeedTests` chặn việc tái phạm.
   - [ ] Còn lại: thay ảnh minh họa bằng ảnh thật bạn làm cho khách (có sự đồng ý của họ), lưu với `sample = false`. Ảnh minh họa hiện có logo các thương hiệu thật (Act+Acre, Curology...), nên thay càng sớm càng tốt.
 - [x] **Thanh kéo trước/sau** chỉ hiện khi có một cặp ảnh thật (`beforeUrl` có giá trị và `sample = false`). Khi chưa có, hero hiện ảnh tĩnh kèm nhãn "Ảnh minh họa".
   - [ ] Còn lại: thêm ít nhất 1 cặp trước/sau thật cho hero.
 - [x] **Số Zalo, email và ưu đãi làm thử** được chuyển sang `frontend/.env` (mẫu ở `frontend/.env.example`). Khi chưa cấu hình, nút Zalo, link email và các câu nhắc tới Zalo tự ẩn; không còn số giả trên trang.
-  - [ ] Còn lại: tạo `frontend/.env` với `VITE_ZALO_PHONE`, `VITE_CONTACT_EMAIL` thật.
+  - [x] Đã tạo `frontend/.env` với số Zalo và email thật.
+  - [ ] Còn lại: khai báo 3 biến này trên nơi build khi đưa web lên hosting.
 - [x] **Banner làm thử miễn phí** chỉ hiện khi `VITE_FREE_TRIAL_IMAGES > 0` **và** đã có kênh liên hệ. Ngược lại, banner chuyển sang ưu đãi "Tặng 30 credit" (đã có thật trong hệ thống).
   - [ ] Còn lại: chốt số ảnh làm thử (mặc định 5; đặt `0` để tắt ưu đãi).
 
 ## 2. Tài khoản và bảo mật (P0)
 
-- [ ] **Thêm đăng nhập.** Hiện mọi người dùng chung một tài khoản "Shop Demo" (`CurrentAccount.java`), nên ai cũng xem được ảnh của người khác và dùng chung credit.
-  - Gợi ý: đăng nhập bằng Google hoặc OTP số điện thoại/Zalo, Spring Security kèm JWT.
-  - Xác minh số điện thoại trước khi tặng 30 credit, để tránh một người tạo nhiều tài khoản lấy credit miễn phí.
-- [ ] **Phân quyền ADMIN và CUSTOMER** (cần cho phần quản trị ở mục 6).
-- [ ] **Tắt H2 console và giới hạn actuator** ở môi trường production. Profile mặc định đang bật `/h2-console`.
-- [ ] **Giới hạn số lần gọi (rate limit)** cho `POST /api/generations`, ví dụ dùng Bucket4j. Mỗi lần gọi đều tốn tiền API thật.
-- [ ] **Giới hạn kích thước và kiểm tra định dạng ảnh tải lên ở backend.** Hiện request được phép tới 30MB, và chỉ kiểm tra tiền tố `data:image/`.
-- [ ] **Chặn SSRF:** `ImageLoader` chỉ nên tải ảnh từ domain của fal (`*.fal.media`) và kho lưu trữ của mình, không tải link tùy ý.
-- [ ] Chạy CORS với domain thật và chỉ dùng HTTPS.
+- [x] **Đăng nhập bằng email và mật khẩu** (Spring Security kèm JWT, token 7 ngày, mật khẩu băm bcrypt). Đã bỏ tài khoản chung "Shop Demo": mỗi shop chỉ thấy ảnh và credit của mình. Trang `/dang-nhap` gồm đăng ký và đăng nhập; vào `/studio` khi chưa đăng nhập sẽ được chuyển sang đó.
+  - [ ] Còn lại: đặt `JWT_SECRET` (ít nhất 32 ký tự ngẫu nhiên) khi chạy thật. Profile `prod` không khởi động nếu thiếu. Khi chạy dev mà không đặt, mỗi lần khởi động lại backend mọi người sẽ bị đăng xuất.
+  - [ ] Còn lại: đăng nhập bằng Google (cần tạo OAuth Client ID trên Google Cloud) và chức năng quên mật khẩu (cần dịch vụ gửi email).
+- [x] **Xác minh số điện thoại bằng OTP rồi mới tặng 30 credit.** Tài khoản mới có 0 credit. Mỗi số chỉ xác minh được cho một tài khoản (ràng buộc unique trong database). Mã 6 số, hết hạn sau 5 phút, sai 5 lần thì hủy mã, phải chờ 60 giây mới gửi lại, tối đa 5 mã mỗi giờ.
+  - [ ] Còn lại: nối nhà cung cấp SMS (eSMS, SpeedSMS) hoặc Zalo ZNS bằng cách viết một class mới thay cho `LoggingOtpSender`. Hiện mã chỉ được ghi vào log backend. Ở môi trường dev mã hiện luôn trên màn hình; ở profile `prod` thì không, admin có thể đọc log rồi gửi mã cho khách qua Zalo trong thời gian đầu.
+- [x] **Phân quyền ADMIN và CUSTOMER.** `/api/admin/**` chỉ dành cho ADMIN (hiện có `GET /api/admin/accounts`). Tài khoản admin được tạo khi khởi động từ biến môi trường `ADMIN_EMAIL` và `ADMIN_PASSWORD`.
+- [x] **Tắt H2 console và giới hạn actuator.** H2 console tắt ở mọi profile (bật tạm bằng `H2_CONSOLE=true` khi cần debug); actuator chỉ mở `/actuator/health`, không kèm chi tiết.
+- [x] **Giới hạn số lần gọi:** 6 lần tạo ảnh mỗi phút cho mỗi shop, 10 lần đăng ký hoặc đăng nhập mỗi phút cho mỗi IP.
+  - [ ] Còn lại: bộ đếm đang nằm trong bộ nhớ của một server. Chuyển sang Redis (ví dụ Bucket4j) trước khi chạy nhiều server.
+- [x] **Kiểm tra ảnh tải lên ở backend:** chỉ nhận ảnh JPG, PNG, WebP tải lên từ máy (kiểm tra cả chữ ký file, không chỉ tiền tố), tối đa 6MB mỗi ảnh và 20MB mỗi request. Không còn nhận link `https://` do người dùng nhập.
+- [x] **Chặn SSRF:** `ImageLoader` chỉ tải ảnh từ `fal.media` và `*.fal.media`, không đi theo chuyển hướng (redirect). Danh sách domain nằm ở `fortfio.uploads.allowed-remote-hosts`.
+- [ ] Chạy CORS với domain thật và chỉ dùng HTTPS. Profile `prod` đã đọc CORS từ `CORS_ALLOWED_ORIGINS` và nhận header HTTPS từ reverse proxy; còn lại là cài SSL khi có domain (xem mục 3).
+- [ ] Ảnh kết quả trong `/files/...` vẫn xem được nếu có link (đường dẫn là UUID nên không đoán được). Nếu khách cần bảo mật hơn, dùng link có chữ ký và thời hạn khi chuyển sang R2/S3.
 
 ## 3. Dữ liệu và hạ tầng (P0)
 

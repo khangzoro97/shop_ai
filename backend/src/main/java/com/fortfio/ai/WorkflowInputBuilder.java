@@ -1,7 +1,13 @@
 package com.fortfio.ai;
 
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -21,6 +27,12 @@ public class WorkflowInputBuilder {
 
 	private static final String BACKDROP_SUFFIX = " Empty surface in the lower center for a product to be placed later."
 			+ " Product photography background plate, no products, no bottles, no people, no text, no logos, photorealistic.";
+
+	private static final Pattern IMAGE_DATA_URL = Pattern.compile("data:image/(jpeg|png|webp);base64,");
+	private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+	private static final byte[] PNG_MAGIC = {(byte) 0x89, 'P', 'N', 'G'};
+	private static final byte[] RIFF_MAGIC = {'R', 'I', 'F', 'F'};
+	private static final byte[] WEBP_MAGIC = {'W', 'E', 'B', 'P'};
 
 	private final AppProperties properties;
 
@@ -59,16 +71,49 @@ public class WorkflowInputBuilder {
 		return List.of(new StepRequest(StepKind.MAIN, fal.modelFor(workflow), input));
 	}
 
-	private static void validateImages(Workflow workflow, Map<String, String> images) {
+	/** Only uploaded data URIs are accepted, so users cannot make the AI provider fetch arbitrary links. */
+	private void validateImages(Workflow workflow, Map<String, String> images) {
+		long maxBytes = properties.uploads().maxImageSize().toBytes();
 		for (Workflow.ImageSlot slot : workflow.getImageSlots()) {
 			String image = images == null ? null : images.get(slot.key());
 			if (isBlank(image)) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "Thiếu " + slot.label().toLowerCase());
 			}
-			if (!image.startsWith("https://") && !image.startsWith("data:image/")) {
-				throw new ApiException(HttpStatus.BAD_REQUEST, slot.label() + " phải là link https hoặc ảnh tải lên");
+			Matcher header = IMAGE_DATA_URL.matcher(image);
+			if (!header.lookingAt()) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, slot.label() + " phải là ảnh JPG, PNG hoặc WebP tải lên từ máy");
+			}
+			String base64 = image.substring(header.end());
+			if (base64.length() * 3L / 4 > maxBytes) {
+				throw new ApiException(HttpStatus.BAD_REQUEST,
+						slot.label() + " vượt quá " + properties.uploads().maxImageSize().toMegabytes() + "MB");
+			}
+			if (!hasImageSignature(base64)) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, slot.label() + " không phải file ảnh hợp lệ");
 			}
 		}
+		Set<String> slotKeys = workflow.getImageSlots().stream().map(Workflow.ImageSlot::key).collect(Collectors.toSet());
+		if (!slotKeys.containsAll(images.keySet())) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "Ảnh gửi lên không khớp với tính năng đã chọn");
+		}
+	}
+
+	private static boolean hasImageSignature(String base64) {
+		byte[] head;
+		try {
+			head = Base64.getDecoder().decode(base64.substring(0, Math.min(base64.length(), 16)));
+		} catch (IllegalArgumentException ex) {
+			return false;
+		}
+		return startsWith(head, 0, JPEG_MAGIC) || startsWith(head, 0, PNG_MAGIC)
+				|| (startsWith(head, 0, RIFF_MAGIC) && startsWith(head, 8, WEBP_MAGIC));
+	}
+
+	private static boolean startsWith(byte[] data, int offset, byte[] prefix) {
+		if (data.length < offset + prefix.length) {
+			return false;
+		}
+		return Arrays.equals(data, offset, offset + prefix.length, prefix, 0, prefix.length);
 	}
 
 	private static String prompt(Workflow workflow, String styleId, String extraPrompt) {

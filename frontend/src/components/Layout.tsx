@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useAuth } from '../auth/context.ts'
 import { CONTACT, PROMOS } from '../config.ts'
 import Marquee from './Marquee.tsx'
 
@@ -15,6 +16,7 @@ const NAV_LINKS = [
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { pathname } = useLocation()
+  const { account, logout } = useAuth()
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -47,6 +49,27 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-2">
+            {account ? (
+              <div className="hidden items-center gap-2 text-sm md:flex">
+                <span className="max-w-40 truncate font-bold" title={account.email}>
+                  {account.shopName}
+                </span>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="rounded-full px-3 py-2 font-semibold text-ink/60 transition hover:bg-ink/5 hover:text-ink"
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/dang-nhap"
+                className="hidden rounded-full border-2 border-ink px-4 py-2 text-sm font-bold transition hover:bg-ink hover:text-white md:block"
+              >
+                Đăng nhập
+              </Link>
+            )}
             <NavLink
               to="/studio"
               className={`shine relative overflow-hidden rounded-full px-5 py-2.5 text-sm font-bold text-white transition hover:scale-105 ${
@@ -80,6 +103,22 @@ export default function Layout() {
                 {link.label}
               </a>
             ))}
+            {account ? (
+              <button
+                type="button"
+                onClick={() => {
+                  logout()
+                  setMenuOpen(false)
+                }}
+                className="block w-full py-3 text-left font-semibold text-ink/60"
+              >
+                Đăng xuất ({account.shopName})
+              </button>
+            ) : (
+              <Link to="/dang-nhap" onClick={() => setMenuOpen(false)} className="block py-3 font-semibold">
+                Đăng nhập / Đăng ký
+              </Link>
+            )}
           </div>
         )}
       </header>

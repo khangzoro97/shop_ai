@@ -4,13 +4,15 @@ import java.util.List;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fortfio.account.Account;
 import com.fortfio.account.AccountRepository;
-import com.fortfio.account.CurrentAccount;
+import com.fortfio.account.Role;
 import com.fortfio.ai.Workflow;
+import com.fortfio.auth.AuthService;
 import com.fortfio.portfolio.PortfolioItem;
 import com.fortfio.portfolio.PortfolioItem.Category;
 import com.fortfio.portfolio.PortfolioItemRepository;
@@ -31,13 +33,12 @@ public class DataSeeder implements ApplicationRunner {
 	private final AccountRepository accounts;
 	private final PortfolioItemRepository portfolio;
 	private final AppProperties properties;
+	private final PasswordEncoder passwordEncoder;
 
 	@Override
 	@Transactional
 	public void run(ApplicationArguments args) {
-		if (accounts.findByEmail(CurrentAccount.DEMO_EMAIL).isEmpty()) {
-			accounts.save(new Account(CurrentAccount.DEMO_EMAIL, "Shop Demo", properties.signupCredits()));
-		}
+		seedAdmin();
 		if (portfolio.count() == 0) {
 			portfolio.saveAll(List.of(
 					sample("Concept serum - studio", Category.COSMETICS, Workflow.PRODUCT_EXACT,
@@ -53,6 +54,19 @@ public class DataSeeder implements ApplicationRunner {
 					sample("Concept phụ kiện thời trang", Category.FASHION, Workflow.PRODUCT_PHOTO,
 							"photo-1598440947619-2c35fc9aa908", 6)));
 		}
+	}
+
+	/** The password is only used when the account is created; later changes go through the app. */
+	private void seedAdmin() {
+		AppProperties.Admin admin = properties.admin();
+		if (!admin.configured()) {
+			return;
+		}
+		String email = AuthService.normalizeEmail(admin.email());
+		Account account = accounts.findByEmail(email)
+				.orElseGet(() -> new Account(email, passwordEncoder.encode(admin.password()), "Fortfio Admin", 0));
+		account.setRole(Role.ADMIN);
+		accounts.save(account);
 	}
 
 	private static PortfolioItem sample(String title, Category category, Workflow workflow, String imageId, int order) {

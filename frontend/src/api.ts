@@ -33,7 +33,22 @@ export interface Account {
   id: number
   email: string
   shopName: string
+  role: 'CUSTOMER' | 'ADMIN'
   credits: number
+  phone: string | null
+  phoneVerified: boolean
+}
+
+export interface AuthResponse {
+  token: string
+  account: Account
+}
+
+export interface SentCode {
+  phone: string
+  expiresInSeconds: number
+  /** Only returned while the backend has no SMS/Zalo sender (development). */
+  devCode: string | null
 }
 
 export interface PortfolioItem {
@@ -56,27 +71,64 @@ export interface CreateGenerationRequest {
   images: Record<string, string>
 }
 
+const TOKEN_KEY = 'fortfio.token'
+
+/** Fired when the backend rejects the stored token, so the UI can drop the logged-in state. */
+export const SESSION_EXPIRED_EVENT = 'fortfio:session-expired'
+
+export const tokenStore = {
+  get: () => localStorage.getItem(TOKEN_KEY),
+  set: (token: string) => localStorage.setItem(TOKEN_KEY, token),
+  clear: () => localStorage.removeItem(TOKEN_KEY),
+}
+
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = tokenStore.get()
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   })
   if (!res.ok) {
+    if (res.status === 401 && token) {
+      tokenStore.clear()
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+      throw new ApiError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại', 401)
+    }
     const problem = await res.json().catch(() => null)
-    throw new Error(problem?.detail ?? `Lỗi ${res.status}`)
+    const fallback = res.status === 403 ? 'Bạn không có quyền thực hiện thao tác này' : `Lỗi ${res.status}`
+    throw new ApiError(problem?.detail ?? fallback, res.status)
   }
   return res.json() as Promise<T>
 }
 
+const post = <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) })
+
 export const api = {
+  register: (body: { email: string; password: string; shopName: string }) =>
+    post<AuthResponse>('/auth/register', body),
+  login: (body: { email: string; password: string }) => post<AuthResponse>('/auth/login', body),
+  sendPhoneCode: (phone: string) => post<SentCode>('/me/phone/otp', { phone }),
+  verifyPhone: (phone: string, code: string) => post<Account>('/me/phone/verify', { phone, code }),
   me: () => request<Account>('/me'),
   workflows: () => request<Workflow[]>('/workflows'),
   portfolio: (category?: Category) =>
     request<PortfolioItem[]>(`/portfolio${category ? `?category=${category}` : ''}`),
   generations: () => request<Generation[]>('/generations'),
   generation: (id: string) => request<Generation>(`/generations/${id}`),
-  createGeneration: (body: CreateGenerationRequest) =>
-    request<Generation>('/generations', { method: 'POST', body: JSON.stringify(body) }),
+  createGeneration: (body: CreateGenerationRequest) => post<Generation>('/generations', body),
 }
 
 const MAX_IMAGE_SIDE = 1536

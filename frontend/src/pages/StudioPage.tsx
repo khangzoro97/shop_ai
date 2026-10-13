@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, fileToDataUrl, type Account, type Generation, type OutputFormat, type Workflow } from '../api.ts'
+import { api, fileToDataUrl, type Generation, type OutputFormat, type Workflow } from '../api.ts'
+import { useAuth } from '../auth/context.ts'
+import PhoneVerifyCard from '../components/PhoneVerifyCard.tsx'
 
 const POLL_INTERVAL_MS = 3000
 
@@ -14,7 +16,7 @@ const RUNNING_MESSAGES = ['AI đang xem sản phẩm...', 'Đang dựng bối c�
 export default function StudioPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [selected, setSelected] = useState<Workflow>()
-  const [account, setAccount] = useState<Account>()
+  const { account, refreshAccount } = useAuth()
   const [history, setHistory] = useState<Generation[]>([])
   const [images, setImages] = useState<Record<string, string>>({})
   const [style, setStyle] = useState<string>()
@@ -25,15 +27,18 @@ export default function StudioPage() {
   const [dragKey, setDragKey] = useState<string>()
 
   const refresh = useCallback(() => {
-    api.me().then(setAccount).catch(() => {})
+    refreshAccount().catch(() => {})
     api.generations().then(setHistory).catch(() => {})
-  }, [])
+  }, [refreshAccount])
 
   useEffect(() => {
     api.workflows().then((list) => {
       setWorkflows(list)
       selectWorkflow(list[0])
     })
+  }, [])
+
+  useEffect(() => {
     refresh()
   }, [refresh])
 
@@ -100,6 +105,8 @@ export default function StudioPage() {
           )}
         </div>
       </div>
+
+      {account && !account.phoneVerified && <PhoneVerifyCard />}
 
       <div className="grid gap-8 lg:grid-cols-[440px_1fr]">
         <form
