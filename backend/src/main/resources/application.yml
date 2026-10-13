@@ -84,7 +84,9 @@ fortfio:
     max-request-size: 20MB
     # AI results (videos included) copied into our storage.
     max-download-size: 150MB
-    allowed-remote-hosts: fal.media, "*.fal.media"
+    allowed-remote-hosts:
+      - fal.media
+      - "*.fal.media"
   admin:
     # Creates (or promotes) this account as ADMIN on startup.
     email: ${ADMIN_EMAIL:}

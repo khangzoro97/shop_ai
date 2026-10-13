@@ -13,7 +13,9 @@ import java.awt.image.Kernel;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -40,6 +42,7 @@ public class ProductCompositor {
 	private static final double MAX_UPSCALE = 2.0;
 	private static final double BASELINE = 0.84;
 	private static final int ALPHA_THRESHOLD = 8;
+	private static final double MIN_FRAGMENT_RATIO = 0.3;
 	private static final float JPEG_QUALITY = 0.92f;
 
 	private final ImageLoader imageLoader;
@@ -58,7 +61,7 @@ public class ProductCompositor {
 			applyQualityHints(g);
 			drawCover(g, backdrop, width, height);
 
-			BufferedImage trimmed = trimTransparent(toArgb(product));
+			BufferedImage trimmed = trimTransparent(dropSmallFragments(toArgb(product)));
 			double scale = Math.min(MAX_UPSCALE, Math.min(
 					width * MAX_PRODUCT_WIDTH / trimmed.getWidth(),
 					height * MAX_PRODUCT_HEIGHT / trimmed.getHeight()));
@@ -145,6 +148,68 @@ public class ProductCompositor {
 		BufferedImage horizontal = new ConvolveOp(new Kernel(size, 1, weights), ConvolveOp.EDGE_NO_OP, null)
 				.filter(image, null);
 		return new ConvolveOp(new Kernel(1, size, weights), ConvolveOp.EDGE_NO_OP, null).filter(horizontal, null);
+	}
+
+	/**
+	 * Clears detached pieces much smaller than the largest object, such as props the cutout model kept
+	 * from a busy background. Similar-sized objects (a product set) are all kept.
+	 */
+	static BufferedImage dropSmallFragments(BufferedImage image) {
+		int width = image.getWidth();
+		int height = image.getHeight();
+		int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
+		int[] labels = new int[pixels.length];
+		int[] queue = new int[pixels.length];
+		List<Integer> sizes = new ArrayList<>();
+		sizes.add(0);
+
+		for (int start = 0; start < pixels.length; start++) {
+			if (labels[start] != 0 || !isOpaque(pixels[start])) {
+				continue;
+			}
+			int label = sizes.size();
+			int head = 0;
+			int tail = 0;
+			queue[tail++] = start;
+			labels[start] = label;
+			while (head < tail) {
+				int index = queue[head++];
+				int x = index % width;
+				int y = index / width;
+				for (int dy = -1; dy <= 1; dy++) {
+					for (int dx = -1; dx <= 1; dx++) {
+						int nx = x + dx;
+						int ny = y + dy;
+						if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+							continue;
+						}
+						int next = ny * width + nx;
+						if (labels[next] == 0 && isOpaque(pixels[next])) {
+							labels[next] = label;
+							queue[tail++] = next;
+						}
+					}
+				}
+			}
+			sizes.add(tail);
+		}
+
+		int largest = sizes.stream().mapToInt(Integer::intValue).max().orElse(0);
+		if (sizes.size() <= 2 || largest == 0) {
+			return image;
+		}
+		for (int i = 0; i < pixels.length; i++) {
+			if (labels[i] != 0 && sizes.get(labels[i]) < largest * MIN_FRAGMENT_RATIO) {
+				pixels[i] = 0;
+			}
+		}
+		BufferedImage cleaned = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		cleaned.setRGB(0, 0, width, height, pixels, 0, width);
+		return cleaned;
+	}
+
+	private static boolean isOpaque(int argb) {
+		return (argb >>> 24) > ALPHA_THRESHOLD;
 	}
 
 	private static BufferedImage trimTransparent(BufferedImage image) {

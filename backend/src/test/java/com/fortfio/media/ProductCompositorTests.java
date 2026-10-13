@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,23 @@ class ProductCompositorTests {
 
 		Color belowProduct = new Color(result.getRGB(600, 1012));
 		assertThat(belowProduct.getBlue()).isLessThan(TestImages.BACKDROP_BLUE.getBlue());
+	}
+
+	@Test
+	void dropsSmallDetachedFragmentsButKeepsProductSets() {
+		BufferedImage cutout = new BufferedImage(300, 200, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = cutout.createGraphics();
+		g.setColor(TestImages.PRODUCT_RED);
+		g.fillRect(10, 10, 80, 180);
+		g.fillRect(110, 20, 80, 170);
+		g.fillRect(250, 10, 20, 20);
+		g.dispose();
+
+		BufferedImage cleaned = ProductCompositor.dropSmallFragments(cutout);
+
+		assertThat(cleaned.getRGB(50, 100) >>> 24).isEqualTo(255);
+		assertThat(cleaned.getRGB(150, 100) >>> 24).isEqualTo(255);
+		assertThat(cleaned.getRGB(260, 20) >>> 24).isZero();
 	}
 
 	@Test

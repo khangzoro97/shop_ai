@@ -40,6 +40,7 @@ import com.fortfio.ai.Workflow;
 import com.fortfio.common.ApiException;
 import com.fortfio.config.AppProperties;
 import com.fortfio.media.LocalFileStorage;
+import com.fortfio.media.RemoteFiles;
 import com.fortfio.media.TestImages;
 
 @SpringBootTest(properties = {
@@ -65,6 +66,9 @@ class GenerationServiceTests {
 
 	@Autowired
 	private LocalFileStorage storage;
+
+	@Autowired
+	private RemoteFiles remoteFiles;
 
 	@MockitoBean
 	private AiProvider aiProvider;
@@ -252,6 +256,13 @@ class GenerationServiceTests {
 				.extracting(ex -> ((ApiException) ex).getStatus())
 				.isEqualTo(HttpStatus.NOT_FOUND);
 		assertThat(credits()).isEqualTo(10 - Workflow.PRODUCT_PHOTO.getCredits());
+	}
+
+	@Test
+	void configuredHostsAllowFalCdnSubdomains() {
+		assertThat(remoteFiles.isAllowed("https://v3b.fal.media/files/b/0aae3cf0/out.jpg")).isTrue();
+		assertThat(remoteFiles.isAllowed("https://fal.media/files/out.jpg")).isTrue();
+		assertThat(remoteFiles.isAllowed("https://example.com/out.jpg")).isFalse();
 	}
 
 	private int credits() {

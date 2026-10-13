@@ -12,8 +12,9 @@ const ASPECT_CLASS: Record<OutputFormat, string> = {
 }
 
 const PRODUCT_TIPS = [
-  'Chụp thẳng, sản phẩm chiếm khoảng 70% khung hình',
-  'Nền trơn, đủ sáng, không bị chói hay bóng đổ gắt',
+  'Sản phẩm đứng thẳng, chụp ngang tầm, chiếm khoảng 70% khung hình',
+  'Nền trơn, đủ sáng, không bày thêm cây cỏ hay đồ trang trí',
+  'Tránh mặt bàn bóng gương: phần phản chiếu sẽ bị giữ lại',
   'Nhãn, chữ và logo nét, không bị che',
   'Mỗi ảnh chỉ một sản phẩm',
 ]

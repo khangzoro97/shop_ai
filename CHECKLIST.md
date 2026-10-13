@@ -18,7 +18,7 @@ Mức ưu tiên:
 - [x] Chế độ giả lập (mock) khi chưa có `FAL_KEY`, nên phát triển không tốn tiền API.
 - [x] Đăng nhập, xác minh số điện thoại, phân quyền và các lớp bảo vệ cơ bản (chi tiết ở mục 2).
 - [x] PostgreSQL + Flyway, hỗ trợ R2/S3, bộ triển khai Docker kèm HTTPS và sao lưu (chi tiết ở mục 3).
-- [x] 31 test backend chạy trên PostgreSQL thật, frontend build và lint sạch.
+- [x] 34 test backend chạy trên PostgreSQL thật, frontend build và lint sạch.
 
 ---
 
@@ -75,22 +75,29 @@ Mức ưu tiên:
 
 - [x] **Đối chiếu input với tài liệu fal** (schema OpenAPI của từng model): cả 5 model trong `application.yml` đều tồn tại và tên tham số khớp. Đã chỉnh thêm:
   - Tách nền dùng bản `General Use (Heavy)` ở độ phân giải 2048 để viền sản phẩm sạch hơn.
-  - Bối cảnh được tạo đúng kích thước khung cuối (làm tròn lên bội số 16), không phải phóng to từ ảnh vuông.
+  - Bối cảnh được tạo đúng tỉ lệ khung cuối nhưng dưới 1 megapixel, rồi phóng lên. fal tính tiền theo từng megapixel bắt đầu dùng, nên khung 9:16 từ 2–3 megapixel giảm còn 1 (0,025 USD). Sản phẩm vẫn là ảnh thật ở độ phân giải đầy đủ; đã thử thực tế, phông nền không bị mờ thấy rõ.
   - Ảnh sáng tạo nhắc AI giữ nguyên hình dáng, chữ, logo và màu sản phẩm, và trả về JPEG.
   - Video có thêm negative prompt chống méo nhãn và biến dạng sản phẩm.
-- [ ] **Chạy thử với `FAL_KEY` thật.** Key đã nằm trong `backend/.env` (không đưa lên git), nhưng tài khoản fal đang hết số dư nên các lượt gửi đều bị từ chối (credit của khách đã tự hoàn đúng). Nạp 5–10 USD rồi chạy lại bộ thử: 3 ảnh giữ nguyên nhãn, 1 ảnh sáng tạo, 1 thử đồ và 1 video (khoảng 0,5–0,7 USD).
-- [ ] **Làm 20–30 sản phẩm mỹ phẩm thật** để đánh giá: tách nền có sạch không, bóng đổ có tự nhiên không, ánh sáng sản phẩm có khớp bối cảnh không.
-- [x] **Giá vốn theo bảng giá fal** (tháng 10/2026, tỉ giá khoảng 26.300đ/USD). Giá bán một credit từ 1.453đ (gói Pro) đến 1.980đ (gói 99K).
+  - Khi ghép ảnh, tự xóa các mảnh rời nhỏ hơn 30% vật thể lớn nhất mà bước tách nền giữ nhầm. Bộ nhiều sản phẩm có kích thước gần nhau vẫn được giữ đủ.
+- [x] **Chạy thử với `FAL_KEY` thật** (tổng chi khoảng 0,9 USD). Cả 4 quy trình đều chạy được, kết quả được chép về kho lưu trữ của mình.
+  - Đã sửa một lỗi chỉ lộ ra khi chạy thật: danh sách domain được phép tải về bị viết sai cú pháp YAML, nên mọi ảnh từ `v3b.fal.media` bị chặn và job ghép ảnh thất bại. Đã thêm test đọc cấu hình thật.
+  - Ảnh giữ nguyên nhãn, ảnh chụp tốt (serum trên nền trơn): nhãn và chữ giữ đúng 100%, bối cảnh đẹp, mất khoảng 15 giây.
+  - Ảnh giữ nguyên nhãn, ảnh chụp xấu: chụp từ trên xuống trên nền xương rồng thì bước tách nền giữ lại cả xương rồng dính liền với sản phẩm, và sản phẩm bị nghiêng. Chụp trên mặt bàn bóng gương thì phần phản chiếu cũng bị giữ, khiến sản phẩm trông lơ lửng. Không sửa được bằng code, nên hướng dẫn chụp ảnh đã ghi rõ hai điểm này. Khi làm dịch vụ, cần kiểm tra ảnh khách gửi trước khi chạy.
+  - Ảnh sáng tạo: bối cảnh rất tự nhiên, nhưng AI **sửa chữ nhỏ** trên bao bì ("200 ml" thành "340 ml", "FRAGRANCE-FREE" thành "FRAGANCE FREE"). Điều này khẳng định chỉ nên dùng ảnh giữ nguyên nhãn cho ảnh đăng bán.
+  - Thử đồ: áo mặc lên người mẫu đẹp, hình in giữ đúng, nhưng còn sót một chút áo cũ ở vai. Mất khoảng 17 giây.
+  - Video: 5 giây, mất khoảng 3 phút để tạo. Nhãn không bị méo, chữ nhỏ hơi mờ. Video giữ tỉ lệ của ảnh gốc, chưa theo tỉ lệ sàn.
+- [ ] **Làm 20–30 sản phẩm mỹ phẩm thật** để đánh giá thêm: tách nền có sạch không, bóng đổ có tự nhiên không, ánh sáng sản phẩm có khớp bối cảnh không.
+- [ ] Video nên được tạo theo tỉ lệ 9:16 cho TikTok (cắt hoặc đặt ảnh sản phẩm vào khung 9:16 trước khi gửi).
+- [x] **Giá vốn theo hóa đơn fal thật** (tháng 10/2026, tỉ giá khoảng 26.300đ/USD). Giá bán một credit từ 1.453đ (gói Pro) đến 1.980đ (gói 99K).
 
   | Tính năng | Credit | Giá vốn fal | Giá vốn (đ) | Biên lãi gộp |
   |---|---|---|---|---|
-  | Ảnh giữ nguyên nhãn | 2 | tách nền ~0,004 USD + bối cảnh 0,025 USD/megapixel (0,036–0,052 USD) | 1.050–1.480 | 49–73% |
+  | Ảnh giữ nguyên nhãn | 2 | bối cảnh 1 megapixel 0,025 USD + tách nền ~0,0005 USD | 680 | 77–83% |
   | Ảnh sáng tạo | 2 | 0,0398 USD/ảnh | 1.050 | 64–74% |
   | Thử đồ ảo | 3 | 0,07 USD/lượt | 1.840 | 58–69% |
-  | Video 5 giây | 20 | 0,056 USD/giây | 7.360 | 75–81% |
+  | Video 5 giây (Kling 2.5 Turbo Pro) | 20 | 0,07 USD/giây | 9.200 | 68–77% |
 
-  Mỗi số điện thoại xác minh nhận 30 credit, tốn tối đa khoảng 22.000đ giá vốn. Lượt "Làm lại" bị trừ credit như lượt mới, nên không làm giảm biên lãi. Giá trên chưa tính lượt AI lỗi (đã hoàn credit nhưng fal vẫn có thể tính tiền).
-  - [ ] Còn lại: đối chiếu với hóa đơn fal thật sau đợt chạy thử, nhất là thời gian tính phí của bước tách nền.
+  Mỗi số điện thoại xác minh nhận 30 credit, tốn tối đa khoảng 18.000đ giá vốn. Lượt "Làm lại" bị trừ credit như lượt mới, nên không làm giảm biên lãi. Giá trên chưa tính lượt AI lỗi: khi bước ghép ảnh thất bại, credit được hoàn cho khách nhưng fal vẫn tính tiền.
 - [x] **Hướng dẫn chụp ảnh đầu vào** hiện ngay dưới ô tải ảnh trong Studio, có bản riêng cho ảnh sản phẩm và cho thử đồ.
 - [x] **Nút "Làm lại"** trên mỗi kết quả: tạo lại với cùng ảnh, vibe, tỉ lệ và yêu cầu thêm, không cần tải ảnh lên lại. Ảnh gốc của mỗi yêu cầu được lưu vào kho lưu trữ (migration `V2`), nên các yêu cầu tạo trước bản cập nhật này không có nút. Có giới hạn tốc độ chung với nút tạo, không cho làm lại khi yêu cầu còn đang chạy.
 

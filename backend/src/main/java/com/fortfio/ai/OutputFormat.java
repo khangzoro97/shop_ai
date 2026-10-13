@@ -12,6 +12,7 @@ public enum OutputFormat {
 	STORY("Dọc 9:16 · TikTok, Reels", 1080, 1920);
 
 	private static final int SIZE_STEP = 16;
+	private static final double MAX_BACKDROP_PIXELS = 1_000_000;
 
 	private final String label;
 	private final int width;
@@ -24,14 +25,15 @@ public enum OutputFormat {
 	}
 
 	/**
-	 * Backdrop generated at (at least) the final size, rounded up to the model's size step, so it
-	 * is never upscaled; fal's presets are only ~1 megapixel, which blurs 9:16 outputs.
+	 * Backdrop in the final aspect ratio but capped below 1 megapixel: fal bills each started
+	 * megapixel, and the backdrop is only scenery behind the full-resolution product.
 	 */
 	public Map<String, Integer> falImageSize() {
-		return Map.of("width", roundUp(width), "height", roundUp(height));
+		double scale = Math.min(1, Math.sqrt(MAX_BACKDROP_PIXELS / ((double) width * height)));
+		return Map.of("width", roundDown(width * scale), "height", roundDown(height * scale));
 	}
 
-	private static int roundUp(int value) {
-		return (value + SIZE_STEP - 1) / SIZE_STEP * SIZE_STEP;
+	private static int roundDown(double value) {
+		return (int) value / SIZE_STEP * SIZE_STEP;
 	}
 }
