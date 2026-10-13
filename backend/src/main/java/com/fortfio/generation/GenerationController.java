@@ -47,12 +47,23 @@ public class GenerationController {
 	@PostMapping("/generations")
 	@ResponseStatus(HttpStatus.ACCEPTED)
 	public GenerationResponse create(@Valid @RequestBody CreateGenerationRequest request) {
-		Long accountId = currentAccount.id();
-		rateLimiter.check("generate:" + accountId, properties.rateLimit().generationsPerMinute(), Duration.ofMinutes(1),
-				"Bạn đang tạo quá nhanh, hãy đợi 1 phút rồi thử lại");
+		Long accountId = limitedAccountId();
 		GenerationJob job = generationService.create(accountId,
 				request.workflow(), request.style(), request.prompt(), request.format(), request.images());
 		return GenerationResponse.from(job);
+	}
+
+	@PostMapping("/generations/{id}/retry")
+	@ResponseStatus(HttpStatus.ACCEPTED)
+	public GenerationResponse retry(@PathVariable UUID id) {
+		return GenerationResponse.from(generationService.retry(limitedAccountId(), id));
+	}
+
+	private Long limitedAccountId() {
+		Long accountId = currentAccount.id();
+		rateLimiter.check("generate:" + accountId, properties.rateLimit().generationsPerMinute(), Duration.ofMinutes(1),
+				"Bạn đang tạo quá nhanh, hãy đợi 1 phút rồi thử lại");
+		return accountId;
 	}
 
 	@GetMapping("/generations")
@@ -109,12 +120,13 @@ public class GenerationController {
 			int creditsCharged,
 			List<String> outputUrls,
 			String errorMessage,
+			boolean canRetry,
 			Instant createdAt) {
 
 		static GenerationResponse from(GenerationJob job) {
 			return new GenerationResponse(job.getId(), job.getWorkflow(), job.getWorkflow().getOutputType(),
 					job.getStyle(), job.getFormat(), job.getStatus(), job.getCreditsCharged(), job.outputUrlList(),
-					job.getErrorMessage(), job.getCreatedAt());
+					job.getErrorMessage(), job.canRetry(), job.getCreatedAt());
 		}
 	}
 }

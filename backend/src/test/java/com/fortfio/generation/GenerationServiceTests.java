@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.awt.image.BufferedImage;
@@ -211,6 +214,44 @@ class GenerationServiceTests {
 
 		assertThat(service.get(accountId, job.getId()).getStatus()).isEqualTo(GenerationStatus.FAILED);
 		assertThat(credits()).isEqualTo(10);
+	}
+
+	@Test
+	void retryReusesStoredInputsAndChargesAgain() {
+		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
+		when(aiProvider.status(any())).thenReturn(Status.COMPLETED);
+		when(aiProvider.result(any())).thenReturn(List.of("https://cdn/out.jpg"));
+		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, "lifestyle", "trên bàn gỗ", null, PRODUCT);
+		service.pollRunningJobs();
+		assertThat(job.inputs()).containsOnlyKeys("product");
+
+		GenerationJob again = service.retry(accountId, job.getId());
+
+		assertThat(again.getId()).isNotEqualTo(job.getId());
+		assertThat(again.getWorkflow()).isEqualTo(Workflow.PRODUCT_PHOTO);
+		assertThat(again.getStyle()).isEqualTo("lifestyle");
+		assertThat(again.getPrompt()).isEqualTo("trên bàn gỗ");
+		assertThat(again.inputs()).isEqualTo(job.inputs());
+		assertThat(credits()).isEqualTo(10 - 2 * Workflow.PRODUCT_PHOTO.getCredits());
+		verify(aiProvider, times(2)).submit(anyString(), argThat(input ->
+				TestImages.redProductDataUrl().equals(input.get("image_urls") instanceof List<?> urls ? urls.getFirst() : null)));
+	}
+
+	@Test
+	void retryRejectsRunningJobAndOtherAccounts() {
+		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
+		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		Long otherAccount = accounts.save(new Account("other-" + System.nanoTime() + "@test.vn", "{noop}unused", "Other", 10)).getId();
+
+		assertThatThrownBy(() -> service.retry(accountId, job.getId()))
+				.isInstanceOf(ApiException.class)
+				.extracting(ex -> ((ApiException) ex).getStatus())
+				.isEqualTo(HttpStatus.CONFLICT);
+		assertThatThrownBy(() -> service.retry(otherAccount, job.getId()))
+				.isInstanceOf(ApiException.class)
+				.extracting(ex -> ((ApiException) ex).getStatus())
+				.isEqualTo(HttpStatus.NOT_FOUND);
+		assertThat(credits()).isEqualTo(10 - Workflow.PRODUCT_PHOTO.getCredits());
 	}
 
 	private int credits() {

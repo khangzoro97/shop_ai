@@ -18,7 +18,7 @@ Mức ưu tiên:
 - [x] Chế độ giả lập (mock) khi chưa có `FAL_KEY`, nên phát triển không tốn tiền API.
 - [x] Đăng nhập, xác minh số điện thoại, phân quyền và các lớp bảo vệ cơ bản (chi tiết ở mục 2).
 - [x] PostgreSQL + Flyway, hỗ trợ R2/S3, bộ triển khai Docker kèm HTTPS và sao lưu (chi tiết ở mục 3).
-- [x] 29 test backend chạy trên PostgreSQL thật, frontend build và lint sạch.
+- [x] 31 test backend chạy trên PostgreSQL thật, frontend build và lint sạch.
 
 ---
 
@@ -73,11 +73,26 @@ Mức ưu tiên:
 
 ## 4. Chất lượng AI (P0)
 
-- [ ] **Chạy thử với `FAL_KEY` thật** cho cả 4 quy trình. Đối chiếu input và output với tài liệu hiện tại của fal: tên model trong `application.yml` và cách dựng input trong `WorkflowInputBuilder.java` chưa được thử với API thật.
+- [x] **Đối chiếu input với tài liệu fal** (schema OpenAPI của từng model): cả 5 model trong `application.yml` đều tồn tại và tên tham số khớp. Đã chỉnh thêm:
+  - Tách nền dùng bản `General Use (Heavy)` ở độ phân giải 2048 để viền sản phẩm sạch hơn.
+  - Bối cảnh được tạo đúng kích thước khung cuối (làm tròn lên bội số 16), không phải phóng to từ ảnh vuông.
+  - Ảnh sáng tạo nhắc AI giữ nguyên hình dáng, chữ, logo và màu sản phẩm, và trả về JPEG.
+  - Video có thêm negative prompt chống méo nhãn và biến dạng sản phẩm.
+- [ ] **Chạy thử với `FAL_KEY` thật.** Key đã nằm trong `backend/.env` (không đưa lên git), nhưng tài khoản fal đang hết số dư nên các lượt gửi đều bị từ chối (credit của khách đã tự hoàn đúng). Nạp 5–10 USD rồi chạy lại bộ thử: 3 ảnh giữ nguyên nhãn, 1 ảnh sáng tạo, 1 thử đồ và 1 video (khoảng 0,5–0,7 USD).
 - [ ] **Làm 20–30 sản phẩm mỹ phẩm thật** để đánh giá: tách nền có sạch không, bóng đổ có tự nhiên không, ánh sáng sản phẩm có khớp bối cảnh không.
-- [ ] **Tính giá vốn thực tế** cho mỗi ảnh và mỗi video, rồi so với giá bán credit để chốt lại bảng giá.
-- [ ] Viết **hướng dẫn chụp ảnh đầu vào** cho shop (đủ sáng, nền trơn, sản phẩm rõ nét) và hiển thị ngay trong Studio.
-- [ ] Thêm nút **"Làm lại"** cho cùng ảnh đầu vào. Khách thường muốn thử vài phiên bản.
+- [x] **Giá vốn theo bảng giá fal** (tháng 10/2026, tỉ giá khoảng 26.300đ/USD). Giá bán một credit từ 1.453đ (gói Pro) đến 1.980đ (gói 99K).
+
+  | Tính năng | Credit | Giá vốn fal | Giá vốn (đ) | Biên lãi gộp |
+  |---|---|---|---|---|
+  | Ảnh giữ nguyên nhãn | 2 | tách nền ~0,004 USD + bối cảnh 0,025 USD/megapixel (0,036–0,052 USD) | 1.050–1.480 | 49–73% |
+  | Ảnh sáng tạo | 2 | 0,0398 USD/ảnh | 1.050 | 64–74% |
+  | Thử đồ ảo | 3 | 0,07 USD/lượt | 1.840 | 58–69% |
+  | Video 5 giây | 20 | 0,056 USD/giây | 7.360 | 75–81% |
+
+  Mỗi số điện thoại xác minh nhận 30 credit, tốn tối đa khoảng 22.000đ giá vốn. Lượt "Làm lại" bị trừ credit như lượt mới, nên không làm giảm biên lãi. Giá trên chưa tính lượt AI lỗi (đã hoàn credit nhưng fal vẫn có thể tính tiền).
+  - [ ] Còn lại: đối chiếu với hóa đơn fal thật sau đợt chạy thử, nhất là thời gian tính phí của bước tách nền.
+- [x] **Hướng dẫn chụp ảnh đầu vào** hiện ngay dưới ô tải ảnh trong Studio, có bản riêng cho ảnh sản phẩm và cho thử đồ.
+- [x] **Nút "Làm lại"** trên mỗi kết quả: tạo lại với cùng ảnh, vibe, tỉ lệ và yêu cầu thêm, không cần tải ảnh lên lại. Ảnh gốc của mỗi yêu cầu được lưu vào kho lưu trữ (migration `V2`), nên các yêu cầu tạo trước bản cập nhật này không có nút. Có giới hạn tốc độ chung với nút tạo, không cho làm lại khi yêu cầu còn đang chạy.
 
 ## 5. Thanh toán (P0)
 

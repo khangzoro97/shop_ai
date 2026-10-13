@@ -27,6 +27,10 @@ public class WorkflowInputBuilder {
 
 	private static final String BACKDROP_SUFFIX = " Empty surface in the lower center for a product to be placed later."
 			+ " Product photography background plate, no products, no bottles, no people, no text, no logos, photorealistic.";
+	private static final String KEEP_PRODUCT_SUFFIX = " Keep the product's shape, label text, logo and colors exactly"
+			+ " as in the reference photo.";
+	private static final String VIDEO_NEGATIVE_PROMPT = "blur, distort, low quality, warped label, changing text,"
+			+ " deformed product, extra products, morphing";
 
 	private static final Pattern IMAGE_DATA_URL = Pattern.compile("data:image/(jpeg|png|webp);base64,");
 	private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
@@ -48,14 +52,17 @@ public class WorkflowInputBuilder {
 			case PRODUCT_EXACT -> List.of(
 					new StepRequest(StepKind.CUTOUT, fal.backgroundRemovalModel(), Map.of(
 							"image_url", images.get("product"),
+							"model", "General Use (Heavy)",
+							"operating_resolution", "2048x2048",
 							"output_format", "png")),
 					new StepRequest(StepKind.BACKDROP, fal.backdropModel(), Map.of(
 							"prompt", prompt(workflow, styleId, extraPrompt) + BACKDROP_SUFFIX,
-							"image_size", format.getFalImageSize(),
+							"image_size", format.falImageSize(),
 							"num_images", 1)));
 			case PRODUCT_PHOTO -> main(fal, workflow, Map.of(
-					"prompt", prompt(workflow, styleId, extraPrompt),
+					"prompt", prompt(workflow, styleId, extraPrompt) + KEEP_PRODUCT_SUFFIX,
 					"image_urls", List.of(images.get("product")),
+					"output_format", "jpeg",
 					"num_images", 1));
 			case VIRTUAL_TRYON -> main(fal, workflow, Map.of(
 					"human_image_url", images.get("person"),
@@ -63,6 +70,7 @@ public class WorkflowInputBuilder {
 			case PRODUCT_VIDEO -> main(fal, workflow, Map.of(
 					"prompt", prompt(workflow, styleId, extraPrompt),
 					"image_url", images.get("product"),
+					"negative_prompt", VIDEO_NEGATIVE_PROMPT,
 					"duration", "5"));
 		};
 	}

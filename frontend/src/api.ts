@@ -26,6 +26,7 @@ export interface Generation {
   creditsCharged: number
   outputUrls: string[]
   errorMessage: string | null
+  canRetry: boolean
   createdAt: string
 }
 
@@ -129,6 +130,7 @@ export const api = {
   generations: () => request<Generation[]>('/generations'),
   generation: (id: string) => request<Generation>(`/generations/${id}`),
   createGeneration: (body: CreateGenerationRequest) => post<Generation>('/generations', body),
+  retryGeneration: (id: string) => post<Generation>(`/generations/${id}/retry`, {}),
 }
 
 const MAX_IMAGE_SIDE = 1536

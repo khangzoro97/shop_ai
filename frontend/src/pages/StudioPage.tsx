@@ -11,6 +11,19 @@ const ASPECT_CLASS: Record<OutputFormat, string> = {
   STORY: 'aspect-[9/16]',
 }
 
+const PRODUCT_TIPS = [
+  'Chụp thẳng, sản phẩm chiếm khoảng 70% khung hình',
+  'Nền trơn, đủ sáng, không bị chói hay bóng đổ gắt',
+  'Nhãn, chữ và logo nét, không bị che',
+  'Mỗi ảnh chỉ một sản phẩm',
+]
+
+const TRYON_TIPS = [
+  'Ảnh người mẫu: đứng thẳng, thấy rõ thân trên, không khoanh tay',
+  'Ảnh quần áo: trải phẳng hoặc treo móc, nền trơn, không nhăn',
+  'Ánh sáng đều, không mặc áo khoác che áo cần thử',
+]
+
 const RUNNING_MESSAGES = ['AI đang xem sản phẩm...', 'Đang dựng bối cảnh...', 'Đang chỉnh ánh sáng...', 'Sắp xong rồi nè...']
 
 export default function StudioPage() {
@@ -25,6 +38,7 @@ export default function StudioPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string>()
   const [dragKey, setDragKey] = useState<string>()
+  const [retryingId, setRetryingId] = useState<string>()
 
   const refresh = useCallback(() => {
     refreshAccount().catch(() => {})
@@ -82,8 +96,23 @@ export default function StudioPage() {
     }
   }
 
+  async function handleRetry(id: string) {
+    setRetryingId(id)
+    setError(undefined)
+    try {
+      await api.retryGeneration(id)
+      refresh()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setRetryingId(undefined)
+    }
+  }
+
   const ready = selected?.imageSlots.every((slot) => images[slot.key]) ?? false
-  const label = (id: string) => workflows.find((w) => w.id === id)?.label ?? id
+  const workflowOf = (id: string) => workflows.find((w) => w.id === id)
+  const label = (id: string) => workflowOf(id)?.label ?? id
+  const tips = selected?.imageSlots.some((slot) => slot.key === 'person') ? TRYON_TIPS : PRODUCT_TIPS
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
@@ -191,6 +220,12 @@ export default function StudioPage() {
                     </label>
                   ))}
                 </div>
+                <ul className="mt-3 space-y-1 rounded-2xl bg-cream p-3 text-xs text-ink/70">
+                  <li className="font-bold text-ink">Ảnh đẹp thì kết quả mới đẹp:</li>
+                  {tips.map((tip) => (
+                    <li key={tip}>✓ {tip}</li>
+                  ))}
+                </ul>
               </div>
 
               {selected.styles.length > 0 && (
@@ -313,21 +348,34 @@ export default function StudioPage() {
                     <span className="sticker absolute top-3 left-3 bg-pop-lime">Xong ✓</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-2 p-4 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
                   <div className="min-w-0">
                     <p className="truncate font-black">{label(g.workflow)}</p>
                     <p className="text-ink/50">{new Date(g.createdAt).toLocaleString('vi-VN')}</p>
                   </div>
-                  {g.status === 'SUCCEEDED' && (
-                    <a
-                      href={g.outputUrls[0]}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 rounded-full bg-ink px-4 py-2 font-bold text-white transition hover:bg-pop-pink"
-                    >
-                      Tải về ↓
-                    </a>
-                  )}
+                  <div className="flex shrink-0 gap-2">
+                    {g.canRetry && (
+                      <button
+                        type="button"
+                        onClick={() => handleRetry(g.id)}
+                        disabled={retryingId !== undefined}
+                        title={`Tạo lại với cùng ảnh và lựa chọn · ${workflowOf(g.workflow)?.credits ?? g.creditsCharged} credit`}
+                        className="rounded-full border-2 border-ink px-3 py-1.5 font-bold transition hover:bg-pop-lime disabled:opacity-40"
+                      >
+                        {retryingId === g.id ? '...' : 'Làm lại ↻'}
+                      </button>
+                    )}
+                    {g.status === 'SUCCEEDED' && (
+                      <a
+                        href={g.outputUrls[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full bg-ink px-4 py-2 font-bold text-white transition hover:bg-pop-pink"
+                      >
+                        Tải về ↓
+                      </a>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}

@@ -3,8 +3,11 @@ package com.fortfio.generation;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.fortfio.ai.OutputFormat;
 import com.fortfio.ai.StepKind;
@@ -75,6 +78,9 @@ public class GenerationJob {
 	@Column(length = 4000)
 	private String outputUrls;
 
+	@Column(length = 2000)
+	private String inputImages;
+
 	@Column(length = 1000)
 	private String errorMessage;
 
@@ -109,6 +115,30 @@ public class GenerationJob {
 
 	public List<String> outputUrlList() {
 		return outputUrls == null || outputUrls.isBlank() ? List.of() : Arrays.asList(outputUrls.split(URL_SEPARATOR));
+	}
+
+	/** Uploaded images by slot key, as stored copies (empty for jobs created before inputs were kept). */
+	public Map<String, String> inputs() {
+		Map<String, String> inputs = new LinkedHashMap<>();
+		if (inputImages != null) {
+			for (String line : inputImages.split(URL_SEPARATOR)) {
+				int separator = line.indexOf('=');
+				if (separator > 0) {
+					inputs.put(line.substring(0, separator), line.substring(separator + 1));
+				}
+			}
+		}
+		return inputs;
+	}
+
+	public void setInputs(Map<String, String> inputs) {
+		inputImages = inputs.entrySet().stream()
+				.map(entry -> entry.getKey() + "=" + entry.getValue())
+				.collect(Collectors.joining(URL_SEPARATOR));
+	}
+
+	public boolean canRetry() {
+		return status != GenerationStatus.RUNNING && !inputs().isEmpty();
 	}
 
 	public void succeed(List<String> urls) {

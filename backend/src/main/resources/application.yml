@@ -1,6 +1,9 @@
 spring:
   application:
     name: fortfio
+  config:
+    # Local secrets such as FAL_KEY=... (git-ignored); real environment variables take precedence.
+    import: optional:file:.env[.properties]
   datasource:
     # Local development: `docker compose up -d postgres` from the project root.
     url: ${DB_URL:jdbc:postgresql://localhost:5432/fortfio}

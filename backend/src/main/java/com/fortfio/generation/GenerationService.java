@@ -1,6 +1,8 @@
 package com.fortfio.generation;
 
 import java.time.Instant;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,6 +48,26 @@ public class GenerationService {
 
 	public GenerationJob create(Long accountId, Workflow workflow, String style, String prompt,
 			OutputFormat format, Map<String, String> images) {
+		return start(accountId, workflow, style, prompt, format, images, null);
+	}
+
+	/** Runs the same request again from the stored copies of its uploaded images (charged again). */
+	public GenerationJob retry(Long accountId, UUID jobId) {
+		GenerationJob original = get(accountId, jobId);
+		if (!original.canRetry()) {
+			throw new ApiException(HttpStatus.CONFLICT, original.getStatus() == GenerationStatus.RUNNING
+					? "Yêu cầu này vẫn đang chạy"
+					: "Yêu cầu này không còn ảnh gốc, hãy tải ảnh lên lại");
+		}
+		Map<String, String> stored = original.inputs();
+		Map<String, String> images = new LinkedHashMap<>();
+		stored.forEach((slot, url) -> images.put(slot, toDataUrl(url)));
+		return start(accountId, original.getWorkflow(), original.getStyle(), original.getPrompt(),
+				original.getFormat(), images, stored);
+	}
+
+	private GenerationJob start(Long accountId, Workflow workflow, String style, String prompt,
+			OutputFormat format, Map<String, String> images, Map<String, String> storedInputs) {
 		OutputFormat effectiveFormat = workflow.formats().isEmpty() ? null
 				: format == null ? OutputFormat.SQUARE : format;
 		List<StepRequest> requests = inputBuilder.build(workflow, style, prompt, effectiveFormat, images);
@@ -60,6 +82,7 @@ public class GenerationService {
 		job.setCreditsCharged(workflow.getCredits());
 
 		try {
+			job.setInputs(storedInputs != null ? storedInputs : storeInputs(images));
 			for (StepRequest request : requests) {
 				job.addStep(request.kind(), request.model())
 						.attach(aiProvider.submit(request.model(), request.input()));
@@ -69,6 +92,20 @@ public class GenerationService {
 			job.fail("Không gửi được yêu cầu tới AI, credit đã được hoàn lại.");
 		}
 		return persist(job);
+	}
+
+	private Map<String, String> storeInputs(Map<String, String> images) {
+		Map<String, String> stored = new LinkedHashMap<>();
+		images.forEach((slot, dataUrl) -> stored.put(slot, storage.saveDataUrl(dataUrl)));
+		return stored;
+	}
+
+	private String toDataUrl(String storedUrl) {
+		byte[] data = storage.read(storedUrl)
+				.orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "Không tìm thấy ảnh gốc, hãy tải ảnh lên lại"));
+		String extension = storedUrl.substring(storedUrl.lastIndexOf('.') + 1);
+		String mimeType = "jpg".equals(extension) ? "image/jpeg" : "image/" + extension;
+		return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(data);
 	}
 
 	public List<GenerationJob> recent(Long accountId, int limit) {
