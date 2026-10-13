@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface MediaPreviewProps {
@@ -62,7 +62,7 @@ export default function MediaPreview({ urls, index, video, title, onIndexChange,
         </div>
       </div>
 
-      <div className="relative flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center">
+      <div className="relative flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-hidden rounded-2xl">
         {video ? (
           <video
             key={url}
@@ -74,13 +74,7 @@ export default function MediaPreview({ urls, index, video, title, onIndexChange,
             className="max-h-full max-w-full rounded-2xl"
           />
         ) : (
-          <img
-            key={url}
-            src={url}
-            alt={title}
-            onClick={(e) => e.stopPropagation()}
-            className="max-h-full max-w-full animate-pop-in rounded-2xl object-contain"
-          />
+          <ZoomableImage key={url} src={url} alt={title} />
         )}
         {many && (
           <>
@@ -114,6 +108,140 @@ export default function MediaPreview({ urls, index, video, title, onIndexChange,
     </div>,
     document.body,
   )
+}
+
+const MAX_ZOOM = 5
+const BUTTON_STEP = 1.5
+const WHEEL_STEP = 1.15
+
+interface View {
+  zoom: number
+  x: number
+  y: number
+}
+
+const FIT: View = { zoom: 1, x: 0, y: 0 }
+
+function ZoomableImage({ src, alt }: { src: string; alt: string }) {
+  const imgRef = useRef<HTMLImageElement>(null)
+  const drag = useRef<{ startX: number; startY: number; x: number; y: number }>(undefined)
+  const [view, setView] = useState<View>(FIT)
+  const [dragging, setDragging] = useState(false)
+
+  const limit = useCallback((v: View): View => {
+    const img = imgRef.current
+    if (!img || v.zoom <= 1) return FIT
+    const maxX = (img.offsetWidth * (v.zoom - 1)) / 2
+    const maxY = (img.offsetHeight * (v.zoom - 1)) / 2
+    return { zoom: v.zoom, x: clamp(v.x, -maxX, maxX), y: clamp(v.y, -maxY, maxY) }
+  }, [])
+
+  const zoomBy = useCallback(
+    (factor: number) =>
+      setView((v) => {
+        const zoom = clamp(v.zoom * factor, 1, MAX_ZOOM)
+        const ratio = zoom / v.zoom
+        return limit({ zoom, x: v.x * ratio, y: v.y * ratio })
+      }),
+    [limit],
+  )
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === '+' || e.key === '=') zoomBy(BUTTON_STEP)
+      if (e.key === '-') zoomBy(1 / BUTTON_STEP)
+      if (e.key === '0') setView(FIT)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomBy])
+
+  function onPointerDown(e: PointerEvent<HTMLImageElement>) {
+    if (view.zoom <= 1) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { startX: e.clientX, startY: e.clientY, x: view.x, y: view.y }
+    setDragging(true)
+  }
+
+  function onPointerMove(e: PointerEvent<HTMLImageElement>) {
+    const d = drag.current
+    if (!d) return
+    setView((v) => limit({ zoom: v.zoom, x: d.x + e.clientX - d.startX, y: d.y + e.clientY - d.startY }))
+  }
+
+  function onPointerUp() {
+    drag.current = undefined
+    setDragging(false)
+  }
+
+  const zoomed = view.zoom > 1
+
+  return (
+    <>
+      <div className="flex h-full w-full animate-pop-in items-center justify-center">
+        <img
+          ref={imgRef}
+          src={src}
+          alt={alt}
+          draggable={false}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={() => setView((v) => (v.zoom > 1 ? FIT : limit({ zoom: 2.5, x: 0, y: 0 })))}
+          onWheel={(e) => zoomBy(e.deltaY < 0 ? WHEEL_STEP : 1 / WHEEL_STEP)}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}
+          className={`max-h-full max-w-full rounded-2xl object-contain select-none ${
+            dragging ? 'cursor-grabbing' : zoomed ? 'cursor-grab touch-none' : 'cursor-zoom-in'
+          } ${dragging ? '' : 'transition-transform duration-150'}`}
+        />
+      </div>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-ink/80 p-1 text-white shadow-lg backdrop-blur"
+      >
+        <ZoomButton label="Thu nhỏ" disabled={!zoomed} onClick={() => zoomBy(1 / BUTTON_STEP)}>
+          −
+        </ZoomButton>
+        <button
+          type="button"
+          onClick={() => setView(FIT)}
+          title="Về kích thước vừa khung (phím 0)"
+          className="min-w-16 rounded-full px-2 py-1.5 text-xs font-bold tabular-nums transition hover:bg-white/15"
+        >
+          {Math.round(view.zoom * 100)}%
+        </button>
+        <ZoomButton label="Phóng to" disabled={view.zoom >= MAX_ZOOM} onClick={() => zoomBy(BUTTON_STEP)}>
+          +
+        </ZoomButton>
+      </div>
+    </>
+  )
+}
+
+function ZoomButton({ label, disabled, onClick, children }: {
+  label: string
+  disabled: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="h-8 w-8 rounded-full text-lg leading-none font-black transition hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
+  )
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 function NavButton({ label, right, onClick, children }: {
