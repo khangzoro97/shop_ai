@@ -86,18 +86,28 @@ Mức ưu tiên:
   - Ảnh sáng tạo: bối cảnh rất tự nhiên, nhưng AI **sửa chữ nhỏ** trên bao bì ("200 ml" thành "340 ml", "FRAGRANCE-FREE" thành "FRAGANCE FREE"). Điều này khẳng định chỉ nên dùng ảnh giữ nguyên nhãn cho ảnh đăng bán.
   - Thử đồ: áo mặc lên người mẫu đẹp, hình in giữ đúng, nhưng còn sót một chút áo cũ ở vai. Mất khoảng 17 giây.
   - Video: 5 giây, mất khoảng 3 phút để tạo. Nhãn không bị méo, chữ nhỏ hơi mờ. Video giữ tỉ lệ của ảnh gốc, chưa theo tỉ lệ sàn.
+- [x] **Nâng cấp Studio theo khảo sát fal (nhóm 1)**, đã chạy thử với key thật (khoảng 0,31 USD):
+  - Ảnh giữ nguyên nhãn chuyển sang Bria product shot: AI vẽ bóng đổ, phản chiếu và ánh sáng khớp với sản phẩm thay vì dán sản phẩm lên phông. Sản phẩm luôn được tách nền trước, vì bước tách nền có sẵn của Bria giữ lại vải và giấy quanh sản phẩm. Bộ ghép ảnh cũ vẫn còn, bật lại bằng `fortfio.fal.exact-engine: composite` (khi đó chỉ được 1 phương án).
+  - Ô "Tên sản phẩm" (không bắt buộc): khi có tên, AI tách đúng sản phẩm đó và bỏ đồ trang trí, tay cầm, phản chiếu. Ảnh kem nằm giữa chậu xương rồng trước đây hỏng nay ra sạch.
+  - Ảnh bối cảnh mẫu (không bắt buộc): khách tải một ảnh bối cảnh mình thích, AI đặt sản phẩm vào bối cảnh tương tự thay vì dùng vibe có sẵn.
+  - Chọn vị trí sản phẩm (giữa, lệch trái, lệch phải) và số phương án (1, 2 hoặc 4) cho mỗi lượt. Credit nhân theo số phương án; kết quả có ảnh thu nhỏ để chọn phương án muốn tải về.
+  - Ảnh sáng tạo được tự động đọc chữ (OCR) trên ảnh gốc và ảnh kết quả. Nếu thiếu số hoặc chữ trên bao bì, kết quả hiện cảnh báo vàng. Bước kiểm tra lỗi thì job vẫn thành công, chỉ không có cảnh báo.
+  - Migration `V3` thêm các lựa chọn mới vào yêu cầu tạo ảnh.
+  - fal tự giới hạn ảnh Bria khoảng 1 megapixel (ví dụ 1024x1024, 768x1365 cho 9:16), nên ảnh ra nhỏ hơn khung 1200x1200 mình yêu cầu. Vẫn đủ rõ cho sàn, nhưng nên theo dõi khi làm sản phẩm thật.
 - [ ] **Làm 20–30 sản phẩm mỹ phẩm thật** để đánh giá thêm: tách nền có sạch không, bóng đổ có tự nhiên không, ánh sáng sản phẩm có khớp bối cảnh không.
 - [ ] Video nên được tạo theo tỉ lệ 9:16 cho TikTok (cắt hoặc đặt ảnh sản phẩm vào khung 9:16 trước khi gửi).
 - [x] **Giá vốn theo hóa đơn fal thật** (tháng 10/2026, tỉ giá khoảng 26.300đ/USD). Giá bán một credit từ 1.453đ (gói Pro) đến 1.980đ (gói 99K).
 
   | Tính năng | Credit | Giá vốn fal | Giá vốn (đ) | Biên lãi gộp |
   |---|---|---|---|---|
-  | Ảnh giữ nguyên nhãn | 2 | bối cảnh 1 megapixel 0,025 USD + tách nền ~0,0005 USD | 680 | 77–83% |
-  | Ảnh sáng tạo | 2 | 0,0398 USD/ảnh | 1.050 | 64–74% |
+  | Ảnh giữ nguyên nhãn (Bria product shot) | 2 | 0,04 USD/phương án + tách nền ~0,0005 USD | 1.065 | 63–73% |
+  | Ảnh giữ nguyên nhãn, có điền tên sản phẩm | 2 | thêm 0,03 USD tách nền có hướng dẫn | 1.840 | 37–54% |
+  | Ảnh giữ nguyên nhãn (bộ ghép cũ, dự phòng) | 2 | bối cảnh 1 megapixel 0,025 USD + tách nền ~0,0005 USD | 680 | 77–83% |
+  | Ảnh sáng tạo | 2 | 0,0398 USD/ảnh + OCR ~0,0013 USD/ảnh | 1.120 | 61–72% |
   | Thử đồ ảo | 3 | 0,07 USD/lượt | 1.840 | 58–69% |
   | Video 5 giây (Kling 2.5 Turbo Pro) | 20 | 0,07 USD/giây | 9.200 | 68–77% |
 
-  Mỗi số điện thoại xác minh nhận 30 credit, tốn tối đa khoảng 18.000đ giá vốn. Lượt "Làm lại" bị trừ credit như lượt mới, nên không làm giảm biên lãi. Giá trên chưa tính lượt AI lỗi: khi bước ghép ảnh thất bại, credit được hoàn cho khách nhưng fal vẫn tính tiền.
+  Khi chọn nhiều phương án, credit và giá vốn cùng nhân theo số phương án nên biên lãi không đổi. Tách nền có hướng dẫn tính theo lượt, không nhân theo số phương án, nên biên lãi khi điền tên sản phẩm tăng lên khi chọn 2 hoặc 4 phương án. Mỗi số điện thoại xác minh nhận 30 credit, tốn tối đa khoảng 18.000đ giá vốn. Lượt "Làm lại" bị trừ credit như lượt mới, nên không làm giảm biên lãi. Giá trên chưa tính lượt AI lỗi: khi bước ghép ảnh thất bại, credit được hoàn cho khách nhưng fal vẫn tính tiền.
 - [x] **Hướng dẫn chụp ảnh đầu vào** hiện ngay dưới ô tải ảnh trong Studio, có bản riêng cho ảnh sản phẩm và cho thử đồ.
 - [x] **Nút "Làm lại"** trên mỗi kết quả: tạo lại với cùng ảnh, vibe, tỉ lệ và yêu cầu thêm, không cần tải ảnh lên lại. Ảnh gốc của mỗi yêu cầu được lưu vào kho lưu trữ (migration `V2`), nên các yêu cầu tạo trước bản cập nhật này không có nút. Có giới hạn tốc độ chung với nút tạo, không cho làm lại khi yêu cầu còn đang chạy.
 

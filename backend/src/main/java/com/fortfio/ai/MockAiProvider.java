@@ -8,8 +8,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.Base64;
 import java.time.Instant;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,8 +29,10 @@ public class MockAiProvider implements AiProvider {
 	private static final String SAMPLE_BACKDROP = gradientBackdrop();
 	private static final String SAMPLE_VIDEO = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
+	private static final String SAMPLE_LABEL_TEXT = "SAMPLE LABEL 100ML";
+
 	private final Map<String, Instant> startedAt = new ConcurrentHashMap<>();
-	private final Map<String, String> results = new ConcurrentHashMap<>();
+	private final Map<String, Result> results = new ConcurrentHashMap<>();
 
 	@Override
 	public Submission submit(String model, Map<String, Object> input) {
@@ -46,23 +49,31 @@ public class MockAiProvider implements AiProvider {
 	}
 
 	@Override
-	public List<String> result(Submission submission) {
+	public Result result(Submission submission) {
 		startedAt.remove(submission.requestId());
-		String result = results.remove(submission.requestId());
-		return result == null ? List.of() : List.of(result);
+		Result result = results.remove(submission.requestId());
+		return result == null ? Result.ofUrls(List.of()) : result;
 	}
 
-	private static String fakeResult(String model, Map<String, Object> input) {
-		if (model.contains("video")) {
-			return SAMPLE_VIDEO;
+	private static Result fakeResult(String model, Map<String, Object> input) {
+		if (model.contains("ocr")) {
+			return new Result(List.of(), SAMPLE_LABEL_TEXT);
 		}
-		if (model.contains("birefnet") && input.get("image_url") instanceof String image) {
-			return image;
+		if (model.contains("video")) {
+			return Result.ofUrls(List.of(SAMPLE_VIDEO));
+		}
+		if (model.contains("product-shot") && input.get("image_url") instanceof String image) {
+			int count = input.get("num_results") instanceof Integer n ? n : 1;
+			return Result.ofUrls(Collections.nCopies(count, image));
+		}
+		if ((model.contains("birefnet") || model.contains("remove-background")) && input.get("image_url") instanceof String image) {
+			return Result.ofUrls(List.of(image));
 		}
 		if (input.containsKey("image_size")) {
-			return SAMPLE_BACKDROP;
+			return Result.ofUrls(List.of(SAMPLE_BACKDROP));
 		}
-		return SAMPLE_IMAGE;
+		int count = input.get("num_images") instanceof Integer n ? n : 1;
+		return Result.ofUrls(Collections.nCopies(count, SAMPLE_IMAGE));
 	}
 
 	/** Generated locally: the server only downloads images from allow-listed AI hosts. */

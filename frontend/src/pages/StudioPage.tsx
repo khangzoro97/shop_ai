@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, fileToDataUrl, type Generation, type OutputFormat, type Workflow } from '../api.ts'
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { api, fileToDataUrl, type Generation, type OutputFormat, type Placement, type Workflow } from '../api.ts'
 import { useAuth } from '../auth/context.ts'
 import PhoneVerifyCard from '../components/PhoneVerifyCard.tsx'
 
@@ -25,6 +25,8 @@ const TRYON_TIPS = [
   'Ánh sáng đều, không mặc áo khoác che áo cần thử',
 ]
 
+const VARIANT_CHOICES = [1, 2, 4]
+
 const RUNNING_MESSAGES = ['AI đang xem sản phẩm...', 'Đang dựng bối cảnh...', 'Đang chỉnh ánh sáng...', 'Sắp xong rồi nè...']
 
 export default function StudioPage() {
@@ -36,6 +38,9 @@ export default function StudioPage() {
   const [style, setStyle] = useState<string>()
   const [format, setFormat] = useState<OutputFormat>()
   const [prompt, setPrompt] = useState('')
+  const [placement, setPlacement] = useState<Placement>()
+  const [productName, setProductName] = useState('')
+  const [variants, setVariants] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string>()
   const [dragKey, setDragKey] = useState<string>()
@@ -69,7 +74,14 @@ export default function StudioPage() {
     setImages({})
     setStyle(workflow?.styles[0]?.id)
     setFormat(workflow?.formats[0]?.id)
+    setPlacement(workflow?.placements[0]?.id)
+    setProductName('')
+    setVariants(1)
     setError(undefined)
+  }
+
+  function clearImage(key: string) {
+    setImages(({ [key]: _removed, ...rest }) => rest)
   }
 
   async function handleFile(key: string, file?: File) {
@@ -88,7 +100,16 @@ export default function StudioPage() {
     setSubmitting(true)
     setError(undefined)
     try {
-      await api.createGeneration({ workflow: selected.id, style, format, prompt: prompt || undefined, images })
+      await api.createGeneration({
+        workflow: selected.id,
+        style,
+        format,
+        placement,
+        productName: productName.trim() || undefined,
+        variants,
+        prompt: prompt || undefined,
+        images,
+      })
       refresh()
     } catch (err) {
       setError((err as Error).message)
@@ -110,7 +131,11 @@ export default function StudioPage() {
     }
   }
 
-  const ready = selected?.imageSlots.every((slot) => images[slot.key]) ?? false
+  const ready = selected?.imageSlots.every((slot) => !slot.required || images[slot.key]) ?? false
+  const hasScene = Boolean(images.scene)
+  const variantChoices = VARIANT_CHOICES.filter((n) => n <= (selected?.maxVariants ?? 1))
+  const totalCredits = (selected?.credits ?? 0) * variants
+  let stepNo = 1
   const workflowOf = (id: string) => workflows.find((w) => w.id === id)
   const label = (id: string) => workflowOf(id)?.label ?? id
   const tips = selected?.imageSlots.some((slot) => slot.key === 'person') ? TRYON_TIPS : PRODUCT_TIPS
@@ -144,7 +169,7 @@ export default function StudioPage() {
           className="h-fit space-y-6 rounded-3xl border-2 border-ink bg-white p-6 shadow-[6px_6px_0_0_var(--color-ink)]"
         >
           <div>
-            <StepLabel n={1}>Chọn tính năng</StepLabel>
+            <StepLabel n={stepNo++}>Chọn tính năng</StepLabel>
             <div className="space-y-2.5">
               {workflows.map((w) => {
                 const active = selected?.id === w.id
@@ -180,9 +205,10 @@ export default function StudioPage() {
           {selected && (
             <>
               <div>
-                <StepLabel n={2}>Tải ảnh lên</StepLabel>
+                <StepLabel n={stepNo++}>Tải ảnh lên</StepLabel>
                 <div className="grid grid-cols-2 gap-3">
                   {selected.imageSlots.map((slot) => (
+                    <div key={slot.key} className="relative">
                     <label
                       key={slot.key}
                       onDragOver={(e) => {
@@ -209,7 +235,9 @@ export default function StudioPage() {
                             +
                           </span>
                           <span>{slot.label}</span>
-                          <span className="mt-1 text-xs font-normal text-ink/50">Bấm hoặc kéo thả</span>
+                          <span className="mt-1 text-xs font-normal text-ink/50">
+                            {slot.required ? 'Bấm hoặc kéo thả' : 'Không bắt buộc'}
+                          </span>
                         </>
                       )}
                       <input
@@ -219,8 +247,33 @@ export default function StudioPage() {
                         onChange={(e) => handleFile(slot.key, e.target.files?.[0])}
                       />
                     </label>
+                    {images[slot.key] && (
+                      <button
+                        type="button"
+                        onClick={() => clearImage(slot.key)}
+                        aria-label={`Bỏ ${slot.label.toLowerCase()}`}
+                        className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-white text-sm font-black transition hover:bg-pop-pink hover:text-white"
+                      >
+                        ×
+                      </button>
+                    )}
+                    </div>
                   ))}
                 </div>
+                {selected.preservesProduct && (
+                  <input
+                    value={productName}
+                    onChange={(e) => setProductName(e.target.value)}
+                    maxLength={80}
+                    placeholder="Tên sản phẩm (nên điền), ví dụ: chai serum trắng"
+                    className="mt-3 w-full rounded-2xl border-2 border-ink/10 bg-cream p-3 text-sm transition focus:border-ink focus:outline-none"
+                  />
+                )}
+                {selected.preservesProduct && (
+                  <p className="mt-1.5 px-1 text-xs text-ink/50">
+                    Có tên sản phẩm, AI tách nền sạch hơn khi ảnh chụp có đồ trang trí xung quanh.
+                  </p>
+                )}
                 <ul className="mt-3 space-y-1 rounded-2xl bg-cream p-3 text-xs text-ink/70">
                   <li className="font-bold text-ink">Ảnh đẹp thì kết quả mới đẹp:</li>
                   {tips.map((tip) => (
@@ -231,8 +284,13 @@ export default function StudioPage() {
 
               {selected.styles.length > 0 && (
                 <div>
-                  <StepLabel n={3}>Chọn vibe</StepLabel>
-                  <div className="flex flex-wrap gap-2">
+                  <StepLabel n={stepNo++}>Chọn vibe</StepLabel>
+                  {hasScene && (
+                    <p className="mb-2 rounded-2xl bg-pop-lime/30 p-3 text-xs font-medium">
+                      Đã có ảnh bối cảnh mẫu: AI sẽ dựng bối cảnh theo ảnh đó thay cho vibe.
+                    </p>
+                  )}
+                  <div className={`flex flex-wrap gap-2 ${hasScene ? 'pointer-events-none opacity-40' : ''}`}>
                     {selected.styles.map((s) => (
                       <button
                         type="button"
@@ -253,7 +311,7 @@ export default function StudioPage() {
 
               {selected.formats.length > 0 && (
                 <div>
-                  <StepLabel n={4}>Tỉ lệ theo sàn</StepLabel>
+                  <StepLabel n={stepNo++}>Tỉ lệ theo sàn</StepLabel>
                   <div className="grid grid-cols-3 gap-2">
                     {selected.formats.map((f) => (
                       <button
@@ -272,6 +330,30 @@ export default function StudioPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {(selected.placements.length > 0 || variantChoices.length > 1) && (
+                <div>
+                  <StepLabel n={stepNo++}>Bố cục và số phương án</StepLabel>
+                  {selected.placements.length > 0 && (
+                    <div className="mb-3 grid grid-cols-3 gap-2">
+                      {selected.placements.map((p) => (
+                        <ChoiceButton key={p.id} active={placement === p.id} onClick={() => setPlacement(p.id)}>
+                          {p.label}
+                        </ChoiceButton>
+                      ))}
+                    </div>
+                  )}
+                  {variantChoices.length > 1 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {variantChoices.map((n) => (
+                        <ChoiceButton key={n} active={variants === n} onClick={() => setVariants(n)}>
+                          {n} phương án
+                        </ChoiceButton>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -297,7 +379,7 @@ export default function StudioPage() {
                 disabled={!ready || submitting}
                 className="shine bg-gradient-pop relative w-full overflow-hidden rounded-full py-4 text-lg font-black text-white shadow-lg shadow-pop-pink/30 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
               >
-                {submitting ? 'Đang gửi...' : `Tạo ngay ✦ ${selected.credits} credit`}
+                {submitting ? 'Đang gửi...' : `Tạo ngay ✦ ${totalCredits} credit`}
               </button>
             </>
           )}
@@ -323,67 +405,123 @@ export default function StudioPage() {
 
           <div className="grid items-start gap-5 sm:grid-cols-2">
             {history.map((g) => (
-              <article
+              <ResultCard
                 key={g.id}
-                className="group animate-pop-in overflow-hidden rounded-3xl border-2 border-ink bg-white transition hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]"
-              >
-                <div className={`relative overflow-hidden bg-cream ${ASPECT_CLASS[g.format ?? 'SQUARE']}`}>
-                  {g.status === 'RUNNING' && <RunningState />}
-                  {g.status === 'FAILED' && (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-                      <span className="text-3xl font-black text-red-400">!</span>
-                      <p className="text-sm font-medium text-red-600">{g.errorMessage}</p>
-                    </div>
-                  )}
-                  {g.status === 'SUCCEEDED' &&
-                    (g.outputType === 'VIDEO' ? (
-                      <video src={g.outputUrls[0]} controls loop className="h-full w-full animate-pop-in object-cover" />
-                    ) : (
-                      <img
-                        src={g.outputUrls[0]}
-                        alt={label(g.workflow)}
-                        className="h-full w-full animate-pop-in object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    ))}
-                  {g.status === 'SUCCEEDED' && (
-                    <span className="sticker absolute top-3 left-3 bg-pop-lime">Xong ✓</span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-black">{label(g.workflow)}</p>
-                    <p className="text-ink/50">{new Date(g.createdAt).toLocaleString('vi-VN')}</p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {g.canRetry && (
-                      <button
-                        type="button"
-                        onClick={() => handleRetry(g.id)}
-                        disabled={retryingId !== undefined}
-                        title={`Tạo lại với cùng ảnh và lựa chọn · ${workflowOf(g.workflow)?.credits ?? g.creditsCharged} credit`}
-                        className="rounded-full border-2 border-ink px-3 py-1.5 font-bold transition hover:bg-pop-lime disabled:opacity-40"
-                      >
-                        {retryingId === g.id ? '...' : 'Làm lại ↻'}
-                      </button>
-                    )}
-                    {g.status === 'SUCCEEDED' && (
-                      <a
-                        href={g.outputUrls[0]}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-full bg-ink px-4 py-2 font-bold text-white transition hover:bg-pop-pink"
-                      >
-                        Tải về ↓
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </article>
+                generation={g}
+                label={label(g.workflow)}
+                retrying={retryingId === g.id}
+                retryDisabled={retryingId !== undefined}
+                onRetry={() => handleRetry(g.id)}
+              />
             ))}
           </div>
         </section>
       </div>
     </div>
+  )
+}
+
+interface ResultCardProps {
+  generation: Generation
+  label: string
+  retrying: boolean
+  retryDisabled: boolean
+  onRetry: () => void
+}
+
+function ResultCard({ generation: g, label, retrying, retryDisabled, onRetry }: ResultCardProps) {
+  const [shown, setShown] = useState(0)
+  const url = g.outputUrls[Math.min(shown, g.outputUrls.length - 1)]
+
+  return (
+    <article className="group animate-pop-in overflow-hidden rounded-3xl border-2 border-ink bg-white transition hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]">
+      <div className={`relative overflow-hidden bg-cream ${ASPECT_CLASS[g.format ?? 'SQUARE']}`}>
+        {g.status === 'RUNNING' && <RunningState />}
+        {g.status === 'FAILED' && (
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+            <span className="text-3xl font-black text-red-400">!</span>
+            <p className="text-sm font-medium text-red-600">{g.errorMessage}</p>
+          </div>
+        )}
+        {g.status === 'SUCCEEDED' &&
+          (g.outputType === 'VIDEO' ? (
+            <video src={url} controls loop className="h-full w-full animate-pop-in object-cover" />
+          ) : (
+            <img
+              key={url}
+              src={url}
+              alt={label}
+              className="h-full w-full animate-pop-in object-cover transition duration-500 group-hover:scale-105"
+            />
+          ))}
+        {g.status === 'SUCCEEDED' && <span className="sticker absolute top-3 left-3 bg-pop-lime">Xong ✓</span>}
+      </div>
+      {g.status === 'SUCCEEDED' && g.outputUrls.length > 1 && (
+        <div className="flex gap-2 px-4 pt-3">
+          {g.outputUrls.map((u, i) => (
+            <button
+              type="button"
+              key={u}
+              onClick={() => setShown(i)}
+              aria-label={`Phương án ${i + 1}`}
+              className={`h-12 w-12 overflow-hidden rounded-xl border-2 transition ${
+                i === shown ? 'border-pop-pink' : 'border-ink/10 hover:border-ink'
+              }`}
+            >
+              <img src={u} alt="" className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+      {g.qualityWarning && (
+        <p className="mx-4 mt-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+          ⚠ {g.qualityWarning}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
+        <div className="min-w-0">
+          <p className="truncate font-black">{label}</p>
+          <p className="text-ink/50">{new Date(g.createdAt).toLocaleString('vi-VN')}</p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {g.canRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={retryDisabled}
+              title={`Tạo lại với cùng ảnh và lựa chọn · ${g.creditsCharged} credit`}
+              className="rounded-full border-2 border-ink px-3 py-1.5 font-bold transition hover:bg-pop-lime disabled:opacity-40"
+            >
+              {retrying ? '...' : 'Làm lại ↻'}
+            </button>
+          )}
+          {g.status === 'SUCCEEDED' && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-ink px-4 py-2 font-bold text-white transition hover:bg-pop-pink"
+            >
+              Tải về ↓
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function ChoiceButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border-2 px-3 py-2 text-xs font-bold transition ${
+        active ? 'border-ink bg-pop-lime/30' : 'border-ink/10 hover:border-ink'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 

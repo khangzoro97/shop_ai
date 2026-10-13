@@ -1,5 +1,7 @@
 package com.fortfio.generation;
 
+import java.util.List;
+
 import com.fortfio.ai.AiProvider;
 import com.fortfio.ai.StepKind;
 
@@ -44,8 +46,13 @@ public class GenerationStep {
 	@Column(length = 1000)
 	private String providerResponseUrl;
 
-	@Column(length = 1000)
+	/** Media output; MAIN steps hold one URL per variant, separated by newlines. */
+	@Column(length = 2000)
 	private String outputUrl;
+
+	/** Text output of OCR steps. */
+	@Column(length = 4000)
+	private String outputText;
 
 	GenerationStep(GenerationJob job, StepKind kind, String model) {
 		this.job = job;
@@ -54,7 +61,16 @@ public class GenerationStep {
 	}
 
 	public boolean isCompleted() {
-		return outputUrl != null;
+		return outputUrl != null || outputText != null;
+	}
+
+	public List<String> outputUrls() {
+		return outputUrl == null || outputUrl.isBlank() ? List.of() : List.of(outputUrl.split("\n"));
+	}
+
+	void completeText(String text) {
+		String value = text == null ? "" : text;
+		outputText = value.substring(0, Math.min(value.length(), 4000));
 	}
 
 	public AiProvider.Submission submission() {
@@ -67,7 +83,7 @@ public class GenerationStep {
 		providerResponseUrl = submission.responseUrl();
 	}
 
-	void complete(String url) {
-		outputUrl = url;
+	void complete(List<String> urls) {
+		outputUrl = String.join("\n", urls);
 	}
 }

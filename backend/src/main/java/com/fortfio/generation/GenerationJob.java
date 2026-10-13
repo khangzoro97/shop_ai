@@ -9,7 +9,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.fortfio.ai.GenerationSpec;
 import com.fortfio.ai.OutputFormat;
+import com.fortfio.ai.Placement;
 import com.fortfio.ai.StepKind;
 import com.fortfio.ai.Workflow;
 
@@ -22,6 +24,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -66,6 +69,19 @@ public class GenerationJob {
 	private String prompt;
 
 	@Enumerated(EnumType.STRING)
+	@Column(length = 16)
+	private Placement placement;
+
+	@Column(length = 100)
+	private String productName;
+
+	@Column(nullable = false)
+	private int variants = 1;
+
+	@Column(length = 500)
+	private String qualityWarning;
+
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 16)
 	private GenerationStatus status = GenerationStatus.RUNNING;
 
@@ -73,6 +89,7 @@ public class GenerationJob {
 	private int creditsCharged;
 
 	@OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+	@OrderBy("id")
 	private List<GenerationStep> steps = new ArrayList<>();
 
 	@Column(length = 4000)
@@ -101,12 +118,34 @@ public class GenerationJob {
 		return step;
 	}
 
+	public GenerationSpec spec() {
+		return new GenerationSpec(workflow, style, prompt, format, placement, productName, variants);
+	}
+
+	public void apply(GenerationSpec spec) {
+		workflow = spec.workflow();
+		style = spec.style();
+		prompt = spec.prompt();
+		format = spec.format();
+		placement = spec.placement();
+		productName = spec.productName();
+		variants = spec.variants();
+	}
+
 	public String stepOutput(StepKind kind) {
+		return stepOutputs(kind).getFirst();
+	}
+
+	public List<String> stepOutputs(StepKind kind) {
 		return steps.stream()
 				.filter(s -> s.getKind() == kind)
 				.findFirst()
-				.map(GenerationStep::getOutputUrl)
+				.map(GenerationStep::outputUrls)
 				.orElseThrow(() -> new IllegalStateException("Job " + id + " has no " + kind + " step"));
+	}
+
+	public boolean hasStep(StepKind kind) {
+		return steps.stream().anyMatch(s -> s.getKind() == kind);
 	}
 
 	public boolean allStepsCompleted() {

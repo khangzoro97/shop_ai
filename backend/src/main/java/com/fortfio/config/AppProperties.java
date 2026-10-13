@@ -31,15 +31,28 @@ public record AppProperties(
 	public record S3(String endpoint, String region, String bucket, String accessKey, String secretKey) {
 	}
 
+	/**
+	 * @param exactEngine how {@link Workflow#PRODUCT_EXACT} places the product: {@code product-shot}
+	 *                    (Bria, grounded with natural shadows) or {@code composite} (backdrop
+	 *                    generated separately, then composited on our server)
+	 */
 	public record Fal(
 			String apiKey,
 			String queueUrl,
 			Map<Workflow, String> models,
+			String exactEngine,
+			String productShotModel,
+			String guidedCutoutModel,
 			String backgroundRemovalModel,
-			String backdropModel) {
+			String backdropModel,
+			String ocrModel) {
 
 		public boolean enabled() {
 			return apiKey != null && !apiKey.isBlank();
+		}
+
+		public boolean compositeEngine() {
+			return "composite".equalsIgnoreCase(exactEngine);
 		}
 
 		public String modelFor(Workflow workflow) {

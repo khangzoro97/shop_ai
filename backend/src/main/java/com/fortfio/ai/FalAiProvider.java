@@ -54,14 +54,14 @@ public class FalAiProvider implements AiProvider {
 	}
 
 	@Override
-	public List<String> result(Submission submission) {
+	public Result result(Submission submission) {
 		Map<String, Object> body = client.get()
 				.uri(submission.responseUrl())
 				.retrieve()
 				.body(JSON_MAP);
 		List<String> urls = new ArrayList<>();
 		collectUrls(body, urls);
-		return urls;
+		return new Result(urls, body.get("results") instanceof String text ? text : null);
 	}
 
 	private static void collectUrls(Object node, List<String> urls) {

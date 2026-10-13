@@ -3,17 +3,20 @@ export type OutputType = 'IMAGE' | 'VIDEO'
 export type OutputFormat = 'SQUARE' | 'PORTRAIT' | 'STORY'
 export type GenerationStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED'
 export type Category = 'FASHION' | 'COSMETICS'
+export type Placement = 'BOTTOM_CENTER' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'
 
 export interface Workflow {
   id: WorkflowId
   label: string
   description: string
   credits: number
+  maxVariants: number
   outputType: OutputType
   preservesProduct: boolean
-  imageSlots: { key: string; label: string }[]
+  imageSlots: { key: string; label: string; required: boolean }[]
   styles: { id: string; label: string }[]
   formats: { id: OutputFormat; label: string; width: number; height: number }[]
+  placements: { id: Placement; label: string }[]
 }
 
 export interface Generation {
@@ -26,6 +29,9 @@ export interface Generation {
   creditsCharged: number
   outputUrls: string[]
   errorMessage: string | null
+  /** Set when OCR found label text the AI changed. */
+  qualityWarning: string | null
+  variants: number
   canRetry: boolean
   createdAt: string
 }
@@ -69,6 +75,9 @@ export interface CreateGenerationRequest {
   style?: string
   prompt?: string
   format?: OutputFormat
+  placement?: Placement
+  productName?: string
+  variants?: number
   images: Record<string, string>
 }
 

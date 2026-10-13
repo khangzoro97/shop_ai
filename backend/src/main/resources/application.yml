@@ -61,12 +61,20 @@ fortfio:
     # Leave empty to run with the mock provider (no API cost).
     api-key: ${FAL_KEY:}
     queue-url: https://queue.fal.run
+    # product-shot (Bria places the product with natural grounding) or composite (local fallback).
+    exact-engine: product-shot
+    product-shot-model: fal-ai/bria/product-shot
+    # Used when the customer names the product: removes props the plain cutout would keep.
+    guided-cutout-model: bria/guided-remove-background
     background-removal-model: fal-ai/birefnet/v2
     backdrop-model: fal-ai/flux/dev
+    # Reads label text to warn when a creative result changed it.
+    ocr-model: fal-ai/florence-2-large/ocr
     models:
       PRODUCT_PHOTO: fal-ai/nano-banana/edit
       VIRTUAL_TRYON: fal-ai/kling/v1-5/kolors-virtual-try-on
-      PRODUCT_VIDEO: fal-ai/kling-video/v2.1/standard/image-to-video
+      # fal bills v2.1 standard requests as v2.5 turbo pro, so request it explicitly.
+      PRODUCT_VIDEO: fal-ai/kling-video/v2.5-turbo/pro/image-to-video
   auth:
     jwt-secret: ${JWT_SECRET:}
     token-ttl: 7d

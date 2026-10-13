@@ -9,9 +9,20 @@ public interface AiProvider {
 
 	Status status(Submission submission);
 
-	List<String> result(Submission submission);
+	Result result(Submission submission);
 
 	record Submission(String requestId, String statusUrl, String responseUrl) {
+	}
+
+	/**
+	 * @param urls media produced by the model, in output order
+	 * @param text text output (OCR models), or null
+	 */
+	record Result(List<String> urls, String text) {
+
+		public static Result ofUrls(List<String> urls) {
+			return new Result(urls, null);
+		}
 	}
 
 	enum Status {

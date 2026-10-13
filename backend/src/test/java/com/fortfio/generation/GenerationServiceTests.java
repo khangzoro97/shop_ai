@@ -32,7 +32,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.fortfio.account.Account;
 import com.fortfio.account.AccountRepository;
 import com.fortfio.ai.AiProvider;
+import com.fortfio.ai.AiProvider.Result;
 import com.fortfio.ai.AiProvider.Status;
+import com.fortfio.ai.GenerationSpec;
 import com.fortfio.ai.AiProvider.Submission;
 import com.fortfio.ai.OutputFormat;
 import com.fortfio.ai.StepKind;
@@ -43,9 +45,11 @@ import com.fortfio.media.LocalFileStorage;
 import com.fortfio.media.RemoteFiles;
 import com.fortfio.media.TestImages;
 
+/** Core job lifecycle, with the local compositing engine for PRODUCT_EXACT. */
 @SpringBootTest(properties = {
 		"fortfio.poll-interval-ms=3600000",
-		"fortfio.storage.local-dir=target/test-storage"
+		"fortfio.storage.local-dir=target/test-storage",
+		"fortfio.fal.exact-engine=composite"
 })
 class GenerationServiceTests {
 
@@ -84,14 +88,18 @@ class GenerationServiceTests {
 	void successfulJobChargesCreditsAndStoresOutput() {
 		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
 		when(aiProvider.status(any())).thenReturn(Status.COMPLETED);
-		when(aiProvider.result(any())).thenReturn(List.of("https://cdn/out.jpg"));
+		when(aiProvider.result(any())).thenReturn(Result.ofUrls(List.of("https://cdn/out.jpg")));
 
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, "lifestyle", null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, "lifestyle", null, null);
+		service.pollRunningJobs();
+		assertThat(service.get(accountId, job.getId()).getSteps()).extracting(GenerationStep::getKind)
+				.containsExactly(StepKind.MAIN, StepKind.QC_SOURCE, StepKind.QC_RESULT);
 		service.pollRunningJobs();
 
 		GenerationJob done = service.get(accountId, job.getId());
 		assertThat(done.getStatus()).isEqualTo(GenerationStatus.SUCCEEDED);
 		assertThat(done.outputUrlList()).containsExactly("https://cdn/out.jpg");
+		assertThat(done.getQualityWarning()).isNull();
 		assertThat(credits()).isEqualTo(10 - Workflow.PRODUCT_PHOTO.getCredits());
 	}
 
@@ -101,7 +109,7 @@ class GenerationServiceTests {
 		when(aiProvider.status(any())).thenReturn(Status.COMPLETED);
 		when(aiProvider.result(any())).thenThrow(new RuntimeException("422 content policy"));
 
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, null, null, null);
 		service.pollRunningJobs();
 
 		assertThat(service.get(accountId, job.getId()).getStatus()).isEqualTo(GenerationStatus.FAILED);
@@ -112,7 +120,7 @@ class GenerationServiceTests {
 	void submitFailureRefundsCredits() {
 		when(aiProvider.submit(anyString(), anyMap())).thenThrow(new RuntimeException("timeout"));
 
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, null, null, null);
 
 		assertThat(job.getStatus()).isEqualTo(GenerationStatus.FAILED);
 		assertThat(credits()).isEqualTo(10);
@@ -120,7 +128,7 @@ class GenerationServiceTests {
 
 	@Test
 	void rejectsWhenNotEnoughCredits() {
-		assertThatThrownBy(() -> service.create(accountId, Workflow.PRODUCT_VIDEO, null, null, null, PRODUCT))
+		assertThatThrownBy(() -> create(Workflow.PRODUCT_VIDEO, null, null, null))
 				.isInstanceOf(ApiException.class)
 				.extracting(ex -> ((ApiException) ex).getStatus())
 				.isEqualTo(HttpStatus.PAYMENT_REQUIRED);
@@ -129,7 +137,7 @@ class GenerationServiceTests {
 
 	@Test
 	void rejectsMissingImageBeforeCharging() {
-		assertThatThrownBy(() -> service.create(accountId, Workflow.VIRTUAL_TRYON, null, null, null, PRODUCT))
+		assertThatThrownBy(() -> create(Workflow.VIRTUAL_TRYON, null, null, null))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("người mẫu");
 		assertThat(credits()).isEqualTo(10);
@@ -142,10 +150,10 @@ class GenerationServiceTests {
 		when(aiProvider.submit(eq(properties.fal().backgroundRemovalModel()), anyMap())).thenReturn(cutout);
 		when(aiProvider.submit(eq(properties.fal().backdropModel()), anyMap())).thenReturn(backdrop);
 		when(aiProvider.status(any())).thenReturn(Status.COMPLETED);
-		when(aiProvider.result(cutout)).thenReturn(List.of(TestImages.redProductDataUrl()));
-		when(aiProvider.result(backdrop)).thenReturn(List.of(TestImages.blueBackdropDataUrl()));
+		when(aiProvider.result(cutout)).thenReturn(Result.ofUrls(List.of(TestImages.redProductDataUrl())));
+		when(aiProvider.result(backdrop)).thenReturn(Result.ofUrls(List.of(TestImages.blueBackdropDataUrl())));
 
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_EXACT, "pastel", null, OutputFormat.STORY, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_EXACT, "pastel", null, OutputFormat.STORY);
 		assertThat(job.getSteps()).extracting(GenerationStep::getKind)
 				.containsExactly(StepKind.CUTOUT, StepKind.BACKDROP);
 
@@ -166,7 +174,7 @@ class GenerationServiceTests {
 	void compositeJobDefaultsToSquareFormat() {
 		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
 
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_EXACT, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_EXACT, null, null, null);
 
 		assertThat(job.getFormat()).isEqualTo(OutputFormat.SQUARE);
 	}
@@ -175,9 +183,9 @@ class GenerationServiceTests {
 	void compositeFailureRefundsCredits() {
 		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
 		when(aiProvider.status(any())).thenReturn(Status.COMPLETED);
-		when(aiProvider.result(any())).thenReturn(List.of("data:image/png;base64,bm90LWFuLWltYWdl"));
+		when(aiProvider.result(any())).thenReturn(Result.ofUrls(List.of("data:image/png;base64,bm90LWFuLWltYWdl")));
 
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_EXACT, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_EXACT, null, null, null);
 		service.pollRunningJobs();
 
 		assertThat(service.get(accountId, job.getId()).getStatus()).isEqualTo(GenerationStatus.FAILED);
@@ -187,7 +195,7 @@ class GenerationServiceTests {
 	@Test
 	void staleJobCopyCannotRefundASecondTime() {
 		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, null, null, null);
 		GenerationJob stale = jobs.findById(job.getId()).orElseThrow();
 		GenerationJob fresh = jobs.findById(job.getId()).orElseThrow();
 
@@ -207,7 +215,7 @@ class GenerationServiceTests {
 			return Status.COMPLETED;
 		});
 		when(aiProvider.result(any())).thenThrow(new RuntimeException("422 content policy"));
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, null, null, null);
 
 		try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
 			Future<?> first = pool.submit(service::pollRunningJobs);
@@ -224,8 +232,9 @@ class GenerationServiceTests {
 	void retryReusesStoredInputsAndChargesAgain() {
 		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
 		when(aiProvider.status(any())).thenReturn(Status.COMPLETED);
-		when(aiProvider.result(any())).thenReturn(List.of("https://cdn/out.jpg"));
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, "lifestyle", "trên bàn gỗ", null, PRODUCT);
+		when(aiProvider.result(any())).thenReturn(Result.ofUrls(List.of("https://cdn/out.jpg")));
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, "lifestyle", "trên bàn gỗ", null);
+		service.pollRunningJobs();
 		service.pollRunningJobs();
 		assertThat(job.inputs()).containsOnlyKeys("product");
 
@@ -244,7 +253,7 @@ class GenerationServiceTests {
 	@Test
 	void retryRejectsRunningJobAndOtherAccounts() {
 		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
-		GenerationJob job = service.create(accountId, Workflow.PRODUCT_PHOTO, null, null, null, PRODUCT);
+		GenerationJob job = create(Workflow.PRODUCT_PHOTO, null, null, null);
 		Long otherAccount = accounts.save(new Account("other-" + System.nanoTime() + "@test.vn", "{noop}unused", "Other", 10)).getId();
 
 		assertThatThrownBy(() -> service.retry(accountId, job.getId()))
@@ -263,6 +272,10 @@ class GenerationServiceTests {
 		assertThat(remoteFiles.isAllowed("https://v3b.fal.media/files/b/0aae3cf0/out.jpg")).isTrue();
 		assertThat(remoteFiles.isAllowed("https://fal.media/files/out.jpg")).isTrue();
 		assertThat(remoteFiles.isAllowed("https://example.com/out.jpg")).isFalse();
+	}
+
+	private GenerationJob create(Workflow workflow, String style, String prompt, OutputFormat format) {
+		return service.create(accountId, new GenerationSpec(workflow, style, prompt, format, null, null, 1), PRODUCT);
 	}
 
 	private int credits() {
