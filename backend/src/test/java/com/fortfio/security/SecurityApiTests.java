@@ -3,6 +3,8 @@ package com.fortfio.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,6 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -23,6 +27,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.fortfio.ai.AiProvider;
 import com.fortfio.ai.AiProvider.Submission;
+import com.fortfio.auth.ResetMailer;
 import com.fortfio.media.TestImages;
 import com.jayway.jsonpath.JsonPath;
 
@@ -44,6 +49,9 @@ class SecurityApiTests {
 
 	@MockitoBean
 	private AiProvider aiProvider;
+
+	@MockitoBean
+	private ResetMailer resetMailer;
 
 	@Test
 	void publicEndpointsWorkWithoutLogin() throws Exception {
@@ -67,6 +75,59 @@ class SecurityApiTests {
 		String admin = login("owner@fortfio.test", "owner-secret-123");
 		mvc.perform(get("/actuator/env").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
 				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void passwordResetLinkWorksOnceAndUnknownEmailsLookTheSame() throws Exception {
+		String email = uniqueEmail();
+		register(email);
+
+		postJson("/api/auth/password/forgot", null, "{\"email\":\"nobody-" + System.nanoTime() + "@test.vn\"}")
+				.andExpect(status().isNoContent());
+		Mockito.verify(resetMailer, never()).send(anyString(), anyString());
+
+		postJson("/api/auth/password/forgot", null, "{\"email\":\"" + email.toUpperCase() + "\"}")
+				.andExpect(status().isNoContent());
+		ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+		Mockito.verify(resetMailer).send(eq(email), link.capture());
+		String token = link.getValue().substring(link.getValue().indexOf("token=") + 6);
+
+		String body = "{\"token\":\"" + token + "\",\"password\":\"matkhau-moi-456\"}";
+		postJson("/api/auth/password/reset", null, body)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.account.email").value(email));
+		postJson("/api/auth/password/reset", null, body).andExpect(status().isBadRequest());
+		assertThat(login(email, "matkhau-moi-456")).isNotBlank();
+		postJson("/api/auth/login", null, "{\"email\":\"" + email + "\",\"password\":\"" + PASSWORD + "\"}")
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void googleLoginIsOffWithoutClientId() throws Exception {
+		mvc.perform(get("/api/auth/options"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.googleClientId").value(""));
+		postJson("/api/auth/google", null, "{\"credential\":\"x.y.z\"}").andExpect(status().isNotFound());
+	}
+
+	@Test
+	void funnelEventsArePublicButReportIsAdminOnly() throws Exception {
+		String visitor = "visitor-" + System.nanoTime();
+		postJson("/api/events", null, "{\"name\":\"VISIT\",\"visitorId\":\"" + visitor + "\"}")
+				.andExpect(status().isNoContent());
+		postJson("/api/events", null, "{\"name\":\"VISIT\",\"visitorId\":\"bad id!\"}")
+				.andExpect(status().isBadRequest());
+
+		String customer = register(uniqueEmail());
+		mvc.perform(get("/api/admin/funnel").header(HttpHeaders.AUTHORIZATION, bearer(customer)))
+				.andExpect(status().isForbidden());
+
+		String admin = login("owner@fortfio.test", "owner-secret-123");
+		mvc.perform(get("/api/admin/funnel?days=7").header(HttpHeaders.AUTHORIZATION, bearer(admin)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.steps.length()").value(6))
+				.andExpect(jsonPath("$.steps[0].count").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+				.andExpect(jsonPath("$.steps[2].count").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
 	}
 
 	@Test

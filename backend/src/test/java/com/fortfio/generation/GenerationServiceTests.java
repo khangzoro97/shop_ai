@@ -268,6 +268,24 @@ class GenerationServiceTests {
 	}
 
 	@Test
+	void resultsCanBeFilteredByWorkflowAndStatus() {
+		when(aiProvider.submit(anyString(), anyMap())).thenReturn(SUBMISSION);
+		GenerationJob photo = create(Workflow.PRODUCT_PHOTO, null, null, null);
+		GenerationJob failedPhoto = create(Workflow.PRODUCT_PHOTO, null, null, null);
+		GenerationJob exact = create(Workflow.PRODUCT_EXACT, null, null, null);
+		failedPhoto.fail("test");
+		jobs.saveAndFlush(failedPhoto);
+
+		assertThat(service.page(accountId, List.of(), null, 0, 10).getContent()).hasSize(3);
+		assertThat(service.page(accountId, List.of(Workflow.PRODUCT_PHOTO, Workflow.PRODUCT_VIDEO), null, 0, 10)
+				.getContent()).extracting(GenerationJob::getId).containsExactly(failedPhoto.getId(), photo.getId());
+		assertThat(service.page(accountId, List.of(Workflow.PRODUCT_PHOTO), GenerationStatus.RUNNING, 0, 10)
+				.getContent()).extracting(GenerationJob::getId).containsExactly(photo.getId());
+		assertThat(service.page(accountId, null, GenerationStatus.RUNNING, 0, 10).getContent())
+				.extracting(GenerationJob::getId).containsExactlyInAnyOrder(photo.getId(), exact.getId());
+	}
+
+	@Test
 	void configuredHostsAllowFalCdnSubdomains() {
 		assertThat(remoteFiles.isAllowed("https://v3b.fal.media/files/b/0aae3cf0/out.jpg")).isTrue();
 		assertThat(remoteFiles.isAllowed("https://fal.media/files/out.jpg")).isTrue();

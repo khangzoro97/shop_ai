@@ -11,12 +11,15 @@ public interface AiProvider {
 
 	Result result(Submission submission);
 
+	/** Runs a fast model and waits for its result, without the queue. */
+	Result run(String model, Map<String, Object> input);
+
 	record Submission(String requestId, String statusUrl, String responseUrl) {
 	}
 
 	/**
 	 * @param urls media produced by the model, in output order
-	 * @param text text output (OCR models), or null
+	 * @param text text output (OCR and language models), or null
 	 */
 	record Result(List<String> urls, String text) {
 

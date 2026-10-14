@@ -19,7 +19,20 @@ public record AppProperties(
 		Auth auth,
 		RateLimit rateLimit,
 		Uploads uploads,
-		Admin admin) {
+		Admin admin,
+		String appUrl,
+		Mail mail,
+		Trial trial) {
+
+	/**
+	 * Free try on the Home page without an account; the result is only shown watermarked.
+	 *
+	 * @param perIpPerDay trials per visitor IP in 24 hours
+	 * @param maxPerDay   trials for all visitors per calendar day (Vietnam time), capping the AI cost
+	 * @param previewSize longest side of the watermarked preview, in pixels
+	 */
+	public record Trial(boolean enabled, int perIpPerDay, int maxPerDay, int previewSize) {
+	}
 
 	public record Cors(List<String> allowedOrigins) {
 	}
@@ -39,13 +52,16 @@ public record AppProperties(
 	public record Fal(
 			String apiKey,
 			String queueUrl,
+			String runUrl,
 			Map<Workflow, String> models,
 			String exactEngine,
 			String productShotModel,
 			String guidedCutoutModel,
 			String backgroundRemovalModel,
 			String backdropModel,
-			String ocrModel) {
+			String ocrModel,
+			Video video,
+			Llm llm) {
 
 		public boolean enabled() {
 			return apiKey != null && !apiKey.isBlank();
@@ -65,10 +81,51 @@ public record AppProperties(
 	}
 
 	/**
+	 * Helper models around the video model.
+	 *
+	 * @param expandModel    widens the first frame to the chosen aspect ratio
+	 * @param lastFrameModel extracts the frame the next clip starts from
+	 * @param joinModel      concatenates clips
+	 * @param addMusicModel  lays the music under the video, cut to the video length
+	 */
+	public record Video(String expandModel, String musicModel, String lastFrameModel, String joinModel,
+			String addMusicModel) {
+	}
+
+	/**
+	 * Language model that turns the customer's own description into prompts (simple mode).
+	 *
+	 * @param visionEndpoint fal endpoint used when a product photo is sent along
+	 * @param textEndpoint   fal endpoint used for text only
+	 * @param model          model id behind fal's OpenRouter proxy
+	 */
+	public record Llm(String visionEndpoint, String textEndpoint, String model) {
+	}
+
+	/**
 	 * @param jwtSecret HMAC key for login tokens; when blank a random key is generated, so
 	 *                  tokens stop working after a restart
 	 */
-	public record Auth(String jwtSecret, Duration tokenTtl, Otp otp) {
+	public record Auth(String jwtSecret, Duration tokenTtl, Otp otp, Reset passwordReset, String googleClientId) {
+
+		public boolean googleEnabled() {
+			return googleClientId != null && !googleClientId.isBlank();
+		}
+	}
+
+	/**
+	 * @param ttl         how long the emailed link works
+	 * @param perHour     reset emails per address and per IP
+	 */
+	public record Reset(Duration ttl, int perHour) {
+	}
+
+	/** Outgoing SMTP; reset links are only logged while the host is empty. */
+	public record Mail(String host, int port, String username, String password, String from) {
+
+		public boolean configured() {
+			return host != null && !host.isBlank();
+		}
 	}
 
 	/**
@@ -78,7 +135,8 @@ public record AppProperties(
 	public record Otp(Duration ttl, Duration resendCooldown, int maxAttempts, boolean exposeCode) {
 	}
 
-	public record RateLimit(int generationsPerMinute, int authPerMinute, int otpPerHour) {
+	public record RateLimit(int generationsPerMinute, int authPerMinute, int otpPerHour, int promptAssistsPerMinute,
+			int inputChecksPerMinute) {
 	}
 
 	/**

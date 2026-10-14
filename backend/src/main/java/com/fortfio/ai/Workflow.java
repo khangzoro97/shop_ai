@@ -1,6 +1,7 @@
 package com.fortfio.ai;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import lombok.Getter;
@@ -18,17 +19,7 @@ public enum Workflow {
 			List.of(
 					new ImageSlot("product", "Ảnh sản phẩm", true),
 					new ImageSlot("scene", "Ảnh bối cảnh mẫu", false)),
-			List.of(
-					new Style("studio", "Studio sáng",
-							"Seamless white and light grey studio backdrop with a smooth tabletop surface, soft diffused lighting, subtle gradient."),
-					new Style("marble", "Bàn đá cẩm thạch",
-							"White marble countertop in a bright bathroom, warm morning sunlight from the left, soft shadows, blurred background."),
-					new Style("pastel", "Hồng pastel",
-							"Soft pastel pink backdrop with a round matte podium, minimal aesthetic, soft even light."),
-					new Style("nature", "Thiên nhiên tươi mát",
-							"Flat beige stone podium surrounded by fresh green leaves and white flowers, water droplets, bright natural light."),
-					new Style("luxury", "Sang trọng",
-							"Dark elegant backdrop with flowing champagne silk fabric and gold accents, dark marble pedestal, soft rim light."))),
+			Vibes.SCENES),
 
 	PRODUCT_PHOTO(
 			"Ảnh sản phẩm sáng tạo",
@@ -38,43 +29,74 @@ public enum Workflow {
 			OutputType.IMAGE,
 			Pipeline.SINGLE,
 			List.of(new ImageSlot("product", "Ảnh sản phẩm", true)),
-			List.of(
-					new Style("studio", "Studio nền trắng",
-							"Place this exact product on a clean seamless white studio background, softbox lighting, subtle reflection, e-commerce packshot, ultra sharp, keep product label and shape unchanged."),
-					new Style("lifestyle", "Lifestyle bàn đá",
-							"Place this exact product on a white marble bathroom counter, warm morning sunlight through a window, soft natural shadows, lifestyle cosmetics photography, keep product label and shape unchanged."),
-					new Style("nature", "Thiên nhiên tươi mát",
-							"Place this exact product among fresh green leaves, flower petals and water droplets, bright natural light, clean beauty aesthetic, keep product label and shape unchanged."),
-					new Style("luxury", "Sang trọng",
-							"Place this exact product on a dark elegant background with gold accents and silk fabric, dramatic rim light, luxury beauty campaign, keep product label and shape unchanged."))),
+			Vibes.CREATIVE_SCENES),
 
-	VIRTUAL_TRYON(
-			"Thử đồ ảo",
-			"Mặc sản phẩm thời trang của shop lên người mẫu, không cần buổi chụp.",
-			3,
+	PRODUCT_HOLDING(
+			"Người mẫu cầm sản phẩm",
+			"Đặt sản phẩm vào tay người mẫu trong ảnh của bạn, giữ nguyên gương mặt, trang phục và bối cảnh. Hợp cho TikTok, ảnh review. Chữ nhỏ trên nhãn có thể bị lệch, hệ thống tự cảnh báo.",
+			2,
 			1,
 			OutputType.IMAGE,
 			Pipeline.SINGLE,
 			List.of(
 					new ImageSlot("person", "Ảnh người mẫu", true),
+					new ImageSlot("product", "Ảnh sản phẩm", true)),
+			Vibes.HOLDING_POSES),
+
+	VIRTUAL_TRYON(
+			"Thử đồ ảo",
+			"Mặc sản phẩm thời trang của shop lên người mẫu, không cần buổi chụp. Giữ đúng hình in và chữ trên áo.",
+			3,
+			4,
+			OutputType.IMAGE,
+			Pipeline.SINGLE,
+			List.of(
+					new ImageSlot("person", "Ảnh người mẫu", true),
 					new ImageSlot("garment", "Ảnh trang phục", true)),
-			List.of()),
+			Vibes.GARMENT_TYPES),
 
 	PRODUCT_VIDEO(
 			"Video sản phẩm ngắn",
-			"Tạo clip 5 giây từ ảnh sản phẩm để đăng TikTok, Reels.",
+			"Video 4–30 giây từ ảnh sản phẩm, dọc 9:16 cho TikTok, Reels, có nhạc nền. Ảnh khác tỉ lệ được AI mở rộng khung, sản phẩm giữ nguyên.",
 			20,
 			1,
 			OutputType.VIDEO,
 			Pipeline.SINGLE,
 			List.of(new ImageSlot("product", "Ảnh sản phẩm", true)),
-			List.of(
-					new Style("showcase", "Xoay giới thiệu",
-							"Slow cinematic camera orbit around the product, soft studio lighting, gentle light sweep across the packaging, premium commercial."),
-					new Style("splash", "Hiệu ứng nước",
-							"Product stands still while fresh water splashes around it in slow motion, bright clean beauty commercial."),
-					new Style("fabric", "Vải bay chuyển động",
-							"Flowing silk fabric moves gracefully in the breeze, soft light, elegant fashion commercial, smooth camera push-in.")));
+			Vibes.MOTIONS),
+
+	RELIGHT(
+			"Chỉnh ánh sáng",
+			"Đổi hướng và kiểu ánh sáng của ảnh đã tạo. AI vẽ lại ảnh nên chữ nhỏ có thể bị lệch, hệ thống tự cảnh báo.",
+			2,
+			1,
+			OutputType.IMAGE,
+			Pipeline.ENHANCE,
+			List.of(new ImageSlot("image", "Ảnh cần chỉnh", true)),
+			Vibes.LIGHTS),
+
+	UPSCALE_2K(
+			"Phóng to 2K",
+			"Phóng ảnh lên cạnh dài 2048px, nét hơn khi in hoặc đăng banner. Không khôi phục được chữ quá nhỏ.",
+			3,
+			1,
+			OutputType.IMAGE,
+			Pipeline.ENHANCE,
+			List.of(new ImageSlot("image", "Ảnh cần phóng to", true)),
+			List.of()),
+
+	UPSCALE_4K(
+			"Phóng to 4K",
+			"Phóng ảnh lên cạnh dài 4096px cho in ấn khổ lớn. Không khôi phục được chữ quá nhỏ.",
+			12,
+			1,
+			OutputType.IMAGE,
+			Pipeline.ENHANCE,
+			List.of(new ImageSlot("image", "Ảnh cần phóng to", true)),
+			List.of());
+
+	/** Style ids that were renamed; old jobs keep the old id and must stay retryable. */
+	private static final Map<String, String> RENAMED_STYLES = Map.of("lifestyle", "marble");
 
 	private final String label;
 	private final String description;
@@ -98,14 +120,27 @@ public enum Workflow {
 	}
 
 	public Optional<Style> findStyle(String id) {
-		return styles.stream().filter(s -> s.id().equals(id)).findFirst();
+		String current = RENAMED_STYLES.getOrDefault(id, id);
+		return styles.stream().filter(s -> s.id().equals(current)).findFirst();
 	}
 
 	public boolean preservesProduct() {
 		return pipeline == Pipeline.PRESERVE_PRODUCT;
 	}
 
+	public boolean enhancesResult() {
+		return pipeline == Pipeline.ENHANCE;
+	}
+
+	public boolean isVideo() {
+		return outputType == OutputType.VIDEO;
+	}
+
+	/** The first format is the default. */
 	public List<OutputFormat> formats() {
+		if (isVideo()) {
+			return List.of(OutputFormat.STORY, OutputFormat.PORTRAIT, OutputFormat.SQUARE);
+		}
 		return preservesProduct() ? List.of(OutputFormat.values()) : List.of();
 	}
 
@@ -121,12 +156,18 @@ public enum Workflow {
 		/** One provider call produces the result. */
 		SINGLE,
 		/** The uploaded product pixels are kept as-is; AI only creates the scene around them. */
-		PRESERVE_PRODUCT
+		PRESERVE_PRODUCT,
+		/** Edits a finished result: started from a result card, not from the Studio form. */
+		ENHANCE
 	}
 
 	public record ImageSlot(String key, String label, boolean required) {
 	}
 
-	public record Style(String id, String label, String prompt) {
+	/**
+	 * @param group shown as a tab in the Studio
+	 * @param hint  which products the vibe suits, shown to shop owners
+	 */
+	public record Style(String id, String group, String label, String hint, String prompt) {
 	}
 }

@@ -1,5 +1,7 @@
 const env = import.meta.env
 
+export const BRAND = 'Chụp Xịn'
+
 function digitsOnly(value: string | undefined) {
   return value?.replace(/\D/g, '') || undefined
 }
@@ -24,12 +26,19 @@ export const CONTACT = {
       : undefined,
 }
 
+/** Legal business details shown in the footer; each line is hidden until configured. */
+export const BUSINESS = {
+  name: env.VITE_BUSINESS_NAME?.trim() || undefined,
+  taxId: env.VITE_BUSINESS_TAX_ID?.trim() || undefined,
+  address: env.VITE_BUSINESS_ADDRESS?.trim() || undefined,
+}
+
 /** Number of product photos the team edits for free as a trial; 0 disables the offer. */
 export const FREE_TRIAL_IMAGES = Math.max(0, Number(env.VITE_FREE_TRIAL_IMAGES ?? 5) || 0)
 
 export const PROMOS = [
   'Tặng 30 credit cho shop mới',
-  'Ảnh giữ nguyên 100% nhãn sản phẩm',
+  'Ảnh sản phẩm giữ nguyên nhãn thật',
   'Chuẩn tỉ lệ Shopee · TikTok · Facebook',
   'Lỗi AI? Tự động hoàn credit',
   ...(CONTACT.primary ? [`Gửi ảnh qua ${CONTACT.primary.channel}, team làm hộ`] : []),

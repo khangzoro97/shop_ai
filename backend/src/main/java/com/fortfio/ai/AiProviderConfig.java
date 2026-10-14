@@ -18,6 +18,6 @@ public class AiProviderConfig {
 			log.warn("FAL_KEY is not set: using MockAiProvider, generations return sample media.");
 			return new MockAiProvider();
 		}
-		return new FalAiProvider(fal.apiKey(), fal.queueUrl());
+		return new FalAiProvider(fal.apiKey(), fal.queueUrl(), fal.runUrl());
 	}
 }

@@ -13,10 +13,16 @@ import com.fortfio.common.ApiException;
 public class CurrentAccount {
 
 	public Long id() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth instanceof JwtAuthenticationToken token) {
-			return Long.valueOf(token.getToken().getSubject());
+		Long id = optionalId();
+		if (id == null) {
+			throw new ApiException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập");
 		}
-		throw new ApiException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập");
+		return id;
+	}
+
+	/** For endpoints open to visitors: null when nobody is logged in. */
+	public Long optionalId() {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		return auth instanceof JwtAuthenticationToken token ? Long.valueOf(token.getToken().getSubject()) : null;
 	}
 }

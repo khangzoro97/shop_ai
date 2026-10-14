@@ -11,3 +11,7 @@ fortfio:
   fal:
     # Never call the paid API from tests, even when backend/.env holds a real key.
     api-key: ""
+  auth:
+    google-client-id: ""
+  mail:
+    host: ""

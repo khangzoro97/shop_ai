@@ -27,7 +27,7 @@ public final class LabelTextCheck {
 		return missing;
 	}
 
-	static Set<String> tokens(String text) {
+	public static Set<String> tokens(String text) {
 		Set<String> tokens = new LinkedHashSet<>();
 		if (text == null) {
 			return tokens;

@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Account } from '../api.ts'
+import type { Account, AuthResponse } from '../api.ts'
 
 export interface AuthState {
   account?: Account
@@ -7,6 +7,8 @@ export interface AuthState {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, shopName: string) => Promise<void>
+  /** Stores a token obtained another way (Google, password reset link). */
+  signIn: (response: AuthResponse) => void
   logout: () => void
   refreshAccount: () => Promise<void>
   setAccount: (account: Account) => void

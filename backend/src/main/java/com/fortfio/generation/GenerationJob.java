@@ -10,9 +10,13 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.fortfio.ai.GenerationSpec;
+import com.fortfio.ai.MusicMood;
 import com.fortfio.ai.OutputFormat;
 import com.fortfio.ai.Placement;
+import com.fortfio.ai.PromptPlan;
 import com.fortfio.ai.StepKind;
+import com.fortfio.ai.VideoOptions;
+import com.fortfio.ai.VideoResolution;
 import com.fortfio.ai.Workflow;
 
 import jakarta.persistence.CascadeType;
@@ -78,6 +82,24 @@ public class GenerationJob {
 	@Column(nullable = false)
 	private int variants = 1;
 
+	private Integer videoSeconds;
+
+	@Enumerated(EnumType.STRING)
+	@Column(length = 8)
+	private VideoResolution videoResolution;
+
+	@Enumerated(EnumType.STRING)
+	@Column(length = 16)
+	private MusicMood music;
+
+	/** Simple mode: the customer's description as submitted; null for the advanced form. */
+	@Column(length = 3000)
+	private String brief;
+
+	/** {@link PromptPlan} as JSON, once the language model has answered. */
+	@Column(length = 8000)
+	private String promptPlan;
+
 	@Column(length = 500)
 	private String qualityWarning;
 
@@ -119,7 +141,30 @@ public class GenerationJob {
 	}
 
 	public GenerationSpec spec() {
-		return new GenerationSpec(workflow, style, prompt, format, placement, productName, variants);
+		return new GenerationSpec(workflow, style, prompt, format, placement, productName, variants, video(), brief,
+				plan());
+	}
+
+	public PromptPlan plan() {
+		return PromptPlan.fromJson(promptPlan);
+	}
+
+	public void setPlan(PromptPlan plan) {
+		promptPlan = plan == null ? null : plan.toJson();
+	}
+
+	/** What the AI understood from the description, in Vietnamese. */
+	public String planSummary() {
+		PromptPlan plan = plan();
+		return plan == null ? null : plan.summary();
+	}
+
+	/** Null for images; video jobs created before these options existed were 5 seconds at 720p. */
+	public VideoOptions video() {
+		if (!workflow.isVideo()) {
+			return null;
+		}
+		return videoSeconds == null ? VideoOptions.DEFAULT : new VideoOptions(videoSeconds, videoResolution, music);
 	}
 
 	public void apply(GenerationSpec spec) {
@@ -130,6 +175,12 @@ public class GenerationJob {
 		placement = spec.placement();
 		productName = spec.productName();
 		variants = spec.variants();
+		VideoOptions video = spec.video();
+		videoSeconds = video == null ? null : video.seconds();
+		videoResolution = video == null ? null : video.resolution();
+		music = video == null ? null : video.music();
+		brief = spec.brief();
+		setPlan(spec.plan());
 	}
 
 	public String stepOutput(StepKind kind) {

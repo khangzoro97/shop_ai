@@ -34,6 +34,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       login: (email, password) => api.login({ email, password }).then(signIn),
       register: (email, password, shopName) => api.register({ email, password, shopName }).then(signIn),
+      signIn,
       logout: () => {
         tokenStore.clear()
         setAccount(undefined)

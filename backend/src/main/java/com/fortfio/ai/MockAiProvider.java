@@ -55,7 +55,15 @@ public class MockAiProvider implements AiProvider {
 		return result == null ? Result.ofUrls(List.of()) : result;
 	}
 
+	@Override
+	public Result run(String model, Map<String, Object> input) {
+		return fakeResult(model, input);
+	}
+
 	private static Result fakeResult(String model, Map<String, Object> input) {
+		if (model.contains("openrouter")) {
+			return new Result(List.of(), fakeText(input));
+		}
 		if (model.contains("ocr")) {
 			return new Result(List.of(), SAMPLE_LABEL_TEXT);
 		}
@@ -69,11 +77,37 @@ public class MockAiProvider implements AiProvider {
 		if ((model.contains("birefnet") || model.contains("remove-background")) && input.get("image_url") instanceof String image) {
 			return Result.ofUrls(List.of(image));
 		}
+		if ((model.contains("relight") || model.contains("upscale") || model.contains("expand"))
+				&& input.get("image_url") instanceof String image) {
+			return Result.ofUrls(List.of(image));
+		}
+		if (input.get("person_image_url") instanceof String person) {
+			return Result.ofUrls(List.of(person));
+		}
+		if (input.get("model_image") instanceof String person) {
+			int count = input.get("num_samples") instanceof Integer n ? n : 1;
+			return Result.ofUrls(Collections.nCopies(count, person));
+		}
 		if (input.containsKey("image_size")) {
 			return Result.ofUrls(List.of(SAMPLE_BACKDROP));
 		}
 		int count = input.get("num_images") instanceof Integer n ? n : 1;
 		return Result.ofUrls(Collections.nCopies(count, SAMPLE_IMAGE));
+	}
+
+	/** A plan when JSON is asked for, otherwise the customer's text with sample details. */
+	private static String fakeText(Map<String, Object> input) {
+		String system = String.valueOf(input.get("system_prompt"));
+		if (system.contains("JSON")) {
+			return """
+					```json
+					{"productName": "product", "placement": "BOTTOM_CENTER", "music": "CHILL",
+					 "summary": "Bản thử (chưa nối AI thật): bối cảnh sáng, tông kem ấm.",
+					 "scene": "Bright minimal studio scene, warm cream tones, soft daylight."}
+					```""";
+		}
+		return "Bản thử (chưa nối AI thật). " + String.valueOf(input.get("prompt"))
+				+ " Đặt trên mặt bàn đá sáng màu, ánh nắng dịu chiếu xiên, tông kem ấm, phong cách quảng cáo tối giản.";
 	}
 
 	/** Generated locally: the server only downloads images from allow-listed AI hosts. */

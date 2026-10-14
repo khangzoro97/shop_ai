@@ -45,6 +45,7 @@ export default function MediaPreview({ urls, index, video, title, onIndexChange,
         <div className="flex shrink-0 gap-2">
           <a
             href={url}
+            data-track="download"
             target="_blank"
             rel="noreferrer"
             className="rounded-full bg-white px-4 py-2 text-sm font-bold text-ink transition hover:bg-pop-lime"

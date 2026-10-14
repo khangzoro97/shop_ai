@@ -181,8 +181,8 @@ class ProductShotPipelineTests {
 
 	@Test
 	void rejectsMoreVariantsThanTheWorkflowAllows() {
-		assertThatThrownBy(() -> service.create(accountId, spec(Workflow.VIRTUAL_TRYON, null, null, null, 2),
-				Map.of("person", PRODUCT, "garment", PRODUCT)))
+		assertThatThrownBy(() -> service.create(accountId, spec(Workflow.PRODUCT_HOLDING, null, null, null, 2),
+				Map.of("person", PRODUCT, "product", PRODUCT)))
 				.isInstanceOf(ApiException.class)
 				.extracting(ex -> ((ApiException) ex).getStatus())
 				.isEqualTo(HttpStatus.BAD_REQUEST);

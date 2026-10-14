@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fortfio.account.Account;
 import com.fortfio.account.AccountRepository;
+import com.fortfio.account.Role;
 import com.fortfio.common.ApiException;
 
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class AuthService {
 	public Account login(String email, String password) {
 		Account account = accounts.findByEmail(normalizeEmail(email))
 				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, INVALID_LOGIN));
-		if (!passwordEncoder.matches(password, account.getPasswordHash())) {
+		if (account.getRole() == Role.SYSTEM || !passwordEncoder.matches(password, account.getPasswordHash())) {
 			throw new ApiException(HttpStatus.UNAUTHORIZED, INVALID_LOGIN);
 		}
 		return account;

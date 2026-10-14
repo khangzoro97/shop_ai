@@ -61,6 +61,8 @@ fortfio:
     # Leave empty to run with the mock provider (no API cost).
     api-key: ${FAL_KEY:}
     queue-url: https://queue.fal.run
+    # Synchronous calls (the "AI viết chi tiết" button), answered within a few seconds.
+    run-url: https://fal.run
     # product-shot (Bria places the product with natural grounding) or composite (local fallback).
     exact-engine: product-shot
     product-shot-model: fal-ai/bria/product-shot
@@ -72,9 +74,30 @@ fortfio:
     ocr-model: fal-ai/florence-2-large/ocr
     models:
       PRODUCT_PHOTO: fal-ai/nano-banana/edit
-      VIRTUAL_TRYON: fal-ai/kling/v1-5/kolors-virtual-try-on
-      # fal bills v2.1 standard requests as v2.5 turbo pro, so request it explicitly.
-      PRODUCT_VIDEO: fal-ai/kling-video/v2.5-turbo/pro/image-to-video
+      PRODUCT_HOLDING: bria/fibo-edit-1.5/product-holding
+      # FASHN keeps prints and removes the old garment; fal-ai/kling/v1-5/kolors-virtual-try-on still works (1 variant).
+      VIRTUAL_TRYON: fal-ai/fashn/tryon/v1.6
+      RELIGHT: bria/fibo-edit/relight
+      # Billed per output megapixel (about 0.02 USD), so the target size sets the price.
+      UPSCALE_2K: topaz/upscale/image/precision
+      UPSCALE_4K: topaz/upscale/image/precision
+      # Vidu Q3 Turbo keeps the composition and label best, renders 360p-1080p and up to 16s per clip
+      # (0.035 / 0.077 / 0.112 USD per second). Seedance also works, e.g.
+      # fal-ai/bytedance/seedance/v1/pro/fast/image-to-video (cheaper, but tends to restage the product).
+      PRODUCT_VIDEO: fal-ai/vidu/q3/image-to-video/turbo
+    video:
+      expand-model: fal-ai/bria/expand
+      # Billed per started minute (0.02 USD); ElevenLabs music costs 0.6 USD per started minute.
+      music-model: cassetteai/music-generator
+      last-frame-model: fal-ai/ffmpeg-api/extract-frame
+      join-model: fal-ai/ffmpeg-api/merge-videos
+      add-music-model: fal-ai/ffmpeg-api/merge-audio-video
+    # Simple mode: writes prompts from the customer's Vietnamese description (about 0.001 USD a call).
+    # gemini-2.5-flash follows the description best; flash-lite is 4x cheaper but drops details.
+    llm:
+      vision-endpoint: openrouter/router/vision
+      text-endpoint: openrouter/router
+      model: google/gemini-2.5-flash
   auth:
     jwt-secret: ${JWT_SECRET:}
     token-ttl: 7d
@@ -83,10 +106,33 @@ fortfio:
       resend-cooldown: 60s
       max-attempts: 5
       expose-code: true
+    password-reset:
+      ttl: 30m
+      per-hour: 3
+    # OAuth client id from Google Cloud Console (type "Web application"); empty hides Google login.
+    google-client-id: ${GOOGLE_CLIENT_ID:}
+  # Public address of the website, used in links sent by email.
+  app-url: ${APP_URL:http://localhost:5173}
+  mail:
+    # SMTP for password reset emails, e.g. smtp.gmail.com:587 with an app password, or Brevo/SES.
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:Chụp Xịn <no-reply@localhost>}
+  trial:
+    enabled: ${TRIAL_ENABLED:true}
+    per-ip-per-day: 2
+    # One trial is one "giữ nguyên nhãn" image, about 0.05 USD with the plan step, so 30 a day stays under 2 USD.
+    max-per-day: ${TRIAL_MAX_PER_DAY:30}
+    preview-size: 720
   rate-limit:
     generations-per-minute: 6
     auth-per-minute: 10
     otp-per-hour: 5
+    prompt-assists-per-minute: 10
+    # Photo checks run on every upload in Studio (about 0.001 USD each).
+    input-checks-per-minute: 20
   uploads:
     max-image-size: 6MB
     max-request-size: 20MB

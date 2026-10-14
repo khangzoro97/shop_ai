@@ -8,6 +8,9 @@ RUN ./mvnw -q -B package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+# Fonts with Vietnamese glyphs for the watermark on trial previews.
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --home /app app && mkdir -p /app/storage && chown app /app/storage
 COPY --from=build /app/target/backend-*.jar app.jar
 USER app

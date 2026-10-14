@@ -7,19 +7,21 @@ import lombok.Getter;
 @Getter
 public enum OutputFormat {
 
-	SQUARE("Vuông 1:1 · Shopee, Lazada", 1200, 1200),
-	PORTRAIT("Dọc 3:4 · Facebook, Instagram", 1080, 1440),
-	STORY("Dọc 9:16 · TikTok, Reels", 1080, 1920);
+	SQUARE("Vuông 1:1 · Shopee, Lazada", "1:1", 1200, 1200),
+	PORTRAIT("Dọc 3:4 · Facebook, Instagram", "3:4", 1080, 1440),
+	STORY("Dọc 9:16 · TikTok, Reels", "9:16", 1080, 1920);
 
 	private static final int SIZE_STEP = 16;
 	private static final double MAX_BACKDROP_PIXELS = 1_000_000;
 
 	private final String label;
+	private final String ratio;
 	private final int width;
 	private final int height;
 
-	OutputFormat(String label, int width, int height) {
+	OutputFormat(String label, String ratio, int width, int height) {
 		this.label = label;
+		this.ratio = ratio;
 		this.width = width;
 		this.height = height;
 	}

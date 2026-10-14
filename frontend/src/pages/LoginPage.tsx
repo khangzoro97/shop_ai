@@ -1,8 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/context.ts'
+import GoogleButton from '../components/GoogleButton.tsx'
 
 type Mode = 'register' | 'login'
+
+/** `/dang-nhap?tab=dang-nhap` opens the login tab; without it the page starts on sign up. */
+const LOGIN_TAB = 'dang-nhap'
 
 const INPUT_CLASS =
   'w-full rounded-2xl border-2 border-ink/10 bg-cream px-4 py-3 transition focus:border-ink focus:outline-none'
@@ -10,7 +14,8 @@ const INPUT_CLASS =
 export default function LoginPage() {
   const { account, login, register } = useAuth()
   const location = useLocation()
-  const [mode, setMode] = useState<Mode>('register')
+  const [params, setParams] = useSearchParams()
+  const mode: Mode = params.get('tab') === LOGIN_TAB ? 'login' : 'register'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [shopName, setShopName] = useState('')
@@ -37,14 +42,15 @@ export default function LoginPage() {
   }
 
   function switchMode(next: Mode) {
-    setMode(next)
+    // Keeps location.state, which holds the page to return to after logging in.
+    setParams(next === 'login' ? { tab: LOGIN_TAB } : {}, { replace: true, state: location.state })
     setError(undefined)
   }
 
   return (
     <div className="mx-auto max-w-md px-6 py-12">
       <div className="rounded-[2rem] border-2 border-ink bg-white p-8 shadow-[6px_6px_0_0_var(--color-ink)]">
-        <span className="sticker bg-pop-lime">✦ Fortfio</span>
+        <span className="sticker bg-pop-lime">✦ Chụp Xịn</span>
         <h1 className="mt-4 text-3xl font-black">
           {mode === 'register' ? 'Tạo tài khoản shop' : 'Chào mừng quay lại'}
         </h1>
@@ -66,6 +72,8 @@ export default function LoginPage() {
             </button>
           ))}
         </div>
+
+        <GoogleButton onError={setError} />
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           {mode === 'register' && (
@@ -107,6 +115,15 @@ export default function LoginPage() {
               className={`mt-1.5 font-normal ${INPUT_CLASS}`}
             />
           </label>
+          {mode === 'login' && (
+            <Link
+              to="/quen-mat-khau"
+              state={{ email }}
+              className="-mt-1 flex min-h-11 items-center justify-end text-sm font-bold text-pop-pink hover:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+          )}
 
           {error && (
             <p className="animate-pop-in rounded-2xl border-2 border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700">

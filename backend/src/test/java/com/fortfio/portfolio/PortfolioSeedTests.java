@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import com.fortfio.config.DataSeeder;
+
 @SpringBootTest(properties = "fortfio.poll-interval-ms=3600000")
 class PortfolioSeedTests {
 
@@ -13,11 +15,11 @@ class PortfolioSeedTests {
 	private PortfolioController controller;
 
 	@Test
-	void seededStockImagesAreNeverPresentedAsClientWork() {
+	void seededDemosAreNeverPresentedAsClientWork() {
 		assertThat(controller.list(null)).isNotEmpty().allSatisfy(item -> {
 			assertThat(item.sample()).isTrue();
-			assertThat(item.client()).isEqualTo("Ảnh minh họa");
-			assertThat(item.beforeUrl()).isNull();
+			assertThat(item.client()).isEqualTo(DataSeeder.SAMPLE_CLIENT);
+			assertThat(item.afterUrl()).startsWith("/portfolio/");
 		});
 	}
 }
